@@ -110,7 +110,12 @@ def extract_text_from_pdf(pdf_path, tesseract_cmd_path=None):
 def main():
     parser = argparse.ArgumentParser(
         description="Extract text from a PDF file, including text from images using OCR.",
-        formatter_class=argparse.RawTextHelpFormatter # For better help text formatting
+        # This string is displayed when the user runs the script with --help, explaining what the script does.
+
+        formatter_class=argparse.RawTextHelpFormatter
+        # For better help text formatting
+        # RawTextHelpFormatter ensures that help messages 
+        # are printed exactly as formatted, preserving newlines and spacing
     )
     parser.add_argument("pdf_file", help="Path to the PDF file to process.")
     parser.add_argument(
@@ -118,7 +123,6 @@ def main():
         help=(
             "Optional: Full path to the Tesseract OCR executable.\n"
             "e.g., C:\\Program Files\\Tesseract-OCR\\tesseract.exe (Windows)\n"
-            "or /usr/bin/tesseract (Linux/macOS)\n"
             "Use this if Tesseract is not in your system PATH."
         ),
         default=None
@@ -136,6 +140,7 @@ def main():
         return
 
     print("Starting text extraction process...")
+    
     extracted_text = extract_text_from_pdf(args.pdf_file, args.tesseract_path)
 
     if args.output_file:
