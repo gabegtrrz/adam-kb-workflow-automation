@@ -74,12 +74,16 @@ def ocr_worker(input_pdf_path_str: str, output_pdf_path_str: str):
             'error': f"Input file error: {e}"
             }
         
+        return output
+        
     except Exception as e:
         output = {
             'status': 'error',
             'input_file': input_pdf_path_str,
             'error': f"Unexpected error: {e}"
             }
+        
+        return output
 
 # --- Main Function ---
 
