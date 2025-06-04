@@ -67,14 +67,14 @@ def ocr_worker(input_pdf_path_str: str, output_pdf_path_str: str):
         
         return output
     
-    except ocrmypdf.exceptions.InputFileError as e:
-        output = {
-            'status': 'error',
-            'input_file': input_pdf_path_str,
-            'error': f"Input file error: {e}"
-            }
+    # except ocrmypdf.exceptions.InputFileError as e:
+    #     output = {
+    #         'status': 'error',
+    #         'input_file': input_pdf_path_str,
+    #         'error': f"Input file error: {e}"
+    #         }
         
-        return output
+    #     return output
         
     except Exception as e:
         output = {
@@ -108,7 +108,8 @@ def main():
     # --- Create Folder Named with timestamp ---
 
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S_OCR')
-    output_folder_path = input_folder_path / "OCR-ed PDFs" / timestamp_str
+    output_folder_name = f"OCR PDFs_{timestamp_str}"
+    output_folder_path = input_folder_path / output_folder_name
 
     try:
         output_folder_path.mkdir(parents=True, exist_ok=True)
@@ -172,7 +173,7 @@ def main():
         else:
             failed_files_info.append(f"- File: {Path(res['input_file']).name}, Error: {res['error']}")
     
-    logger.info("\n --- OCR Processing Summary ---")
+    logger.info("\n\n\n --- OCR Processing Summary ---")
     logger.info(f"Output folder: {output_folder_path}")
     logger.info(f"Total PDF files found: {len(pdf_files)}")
     logger.info(f"Successfully Processed: {successful_count} file(s).")
@@ -185,7 +186,7 @@ def main():
     else:
         logger.info("All found PDF files processed successfully!")
         
-    logger.info("Script finished.")
+    logger.info("Script finished. \n ")
 
 
 if __name__ == "__main__":
