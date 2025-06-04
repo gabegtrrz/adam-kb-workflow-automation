@@ -108,7 +108,7 @@ def main():
     # --- Create Folder Named with timestamp ---
 
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S_OCR')
-    output_folder_path = input_folder_path / 'output' / timestamp_str
+    output_folder_path = input_folder_path / "OCR-ed PDFs" / timestamp_str
 
     try:
         output_folder_path.mkdir(parents=True, exist_ok=True)
@@ -140,6 +140,7 @@ def main():
     for pdf_file_path in pdf_files:
         output_pdf_name = pdf_file_path.name
         output_pdf_full_path = output_folder_path / output_pdf_name
+        # Output PDF Directory is in ### Create Folder Named with timestamp ### above
 
         tasks_for_starmap.append(
             (str(pdf_file_path), str(output_pdf_full_path))
