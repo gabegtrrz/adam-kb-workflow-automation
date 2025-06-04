@@ -108,7 +108,7 @@ def main():
     # --- Create Folder Named with timestamp ---
 
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    output_folder_name = f"OCR PDFs_{timestamp_str}"
+    output_folder_name = f"OUTPUT PDFs_{timestamp_str}"
     output_folder_path = input_folder_path / output_folder_name
 
     try:
