@@ -1,55 +1,47 @@
+<!-- markdownlint-disable -->
+# Data Extraction GoEden
+
 ## **Overview**
 
 This Python script is designed to automate the process of converting image-based PDF documents into searchable PDFs by applying Optical Character Recognition (OCR) directly over the original image text. This makes the text content of your scanned documents accessible, selectable, and searchable.
 
-
 ## **Getting Started**
-
 
 ### **Prerequisites**
 
 To run this script, you'll need the following installed on your system:
 
 - **Python:** Version 3.8 or higher.
-    - Download from: [python.org](https://www.python.org/downloads/)
+  - Download from: [python.org](https://www.python.org/downloads/)
 - **Tesseract OCR Engine:** A 64-bit installation of Tesseract is required.
-    - **Windows:** You can easily install it using `winget`:
+  - **Windows:** You can easily install it using `winget`:
+    ``` 
 
-        
-        `winget install -e --id UB-Mannheim.TesseractOCR`
-        
-    - **macOS:** Install via Homebrew: `brew install tesseract`
-    - **Linux:** Install via your package manager
-        - (e.g., Debian/Ubuntu: `sudo apt install tesseract-ocr`)
+    winget install -e --id UB-Mannheim.TesseractOCR
+    ```
+  - **macOS:** Install via Homebrew: `brew install tesseract`
+  - **Linux:** Install via your package manager
+    - (e.g., Debian/Ubuntu: `sudo apt install tesseract-ocr`)
 - **Ghostscript:** A 64-bit version of Ghostscript is necessary for PDF processing.
-    - Download from: [Ghostscript Official Website](https://ghostscript.com/releases/gsdnld.html)
-    - *Note:* A compatible Windows Ghostscript executable might also be available in this project's Git repository (check `/requirements`).
+  - Download from: [Ghostscript Official Website](https://ghostscript.com/releases/gsdnld.html)
+  - *Note:* A compatible Windows Ghostscript executable might also be available in this project's Git repository (check `/requirements`).
 - **Libraries**
-    
-    [**OCRmyPDF**](https://www.notion.so/OCRmyPDF-2077c1ad9aee80bda5f1c63e8dba70c1?pvs=21)
-    
-
-
+  - [**OCRmyPDF**](https://www.notion.so/OCRmyPDF-2077c1ad9aee80bda5f1c63e8dba70c1?pvs=21)
 
 ### **Installation**
 
 1. **Clone the Repository:**
-    
-    ```bash
-    git clone https://github.com/gabegtrrz/data-extraction-goeden.git 
-    cd data-extraction-goeden
-    ```
-    
+   ```bash
+   git clone https://github.com/gabegtrrz/data-extraction-goeden.git
+   cd data-extraction-goeden
+   ```
 2. **Install Python Libraries:** It's highly recommended to use a virtual environment.
-    
-    ```bash
-    python -m venv venv
-    .\venv\Scripts\activate  # On Windows
-    source venv/bin/activate # On macOS/Linux
-    pip install -r requirements.txt
-    ```
-    
-
+   ```bash
+   python -m venv venv
+   .\venv\Scripts\activate  # On Windows
+   source venv/bin/activate # On macOS/Linux
+   pip install -r requirements.txt
+   ```
 
 ### **Basic Usage**
 
@@ -59,6 +51,31 @@ To process all PDFs in an input folder and save them to an output folder:
 python run_ocer.py "path/to/your/input_folder"
 ```
 
+### Advanced
+
+- **With forced OCR**:
+    
+    ```bash
+    python run_ocr.py "path/to/your/input_folder" --force-ocr
+    ```
+    
+- **With a different language (e.g., Filipino)**:
+    
+    ```bash
+    python run_ocr.py "path/to/your/input_folder" --language fil
+    ```
+    
+- **With a specific number of workers**:
+    
+    ```bash
+    python run_ocr.py "path/to/your/input_folder" --workers 4
+    ```
+    
+- **Combining arguments**:
+    
+    ```bash
+    python run_ocr.py "path/to/your/input_folder" --force-ocr --language eng+fil --workers 2
+    ```
 
 ## **How It Works**
 
@@ -72,11 +89,6 @@ Its primary function is to:
 4. **Embed** the recognized text as an invisible layer directly behind the original image content in the PDF. This creates a "searchable PDF" where the original visual appearance is preserved, but the underlying text can be selected, copied, and searched.
 
 The script also utilizes **multiprocessing** to accelerate the OCR process by distributing tasks across multiple CPU cores.
-
-
-
-
-
 
 ## **Important Considerations & Limitations**
 
@@ -94,12 +106,12 @@ When PDFs already contain native, selectable text (not just images), the script 
 
 - **Loss of Native Document Structure:** Any original text layers, fonts, or structural metadata might be replaced by the OCR-generated layer.
 - **Loss of Source Fidelity & Vector Text:** Original crisp vector text will be converted to an image and then re-interpreted as text. This can result in:
-    - **Reduced Text Crispness:** Text may appear slightly blurred or pixelated compared to its original vector form.
-    - **Graphics Degradation:** Images and other vector graphics within the document may also decrease in quality.
+  - **Reduced Text Crispness:** Text may appear slightly blurred or pixelated compared to its original vector form.
+  - **Graphics Degradation:** Images and other vector graphics within the document may also decrease in quality.
 - **Partial Text Loss:** Some native text, especially if it's not highly visible, small, or part of complex layouts, might not be perfectly re-detected by the OCR engine and could remain as unsearchable image content.
 - **OCR of Logos/Art:** Images that contain text but are intended as graphics (like logos, watermarks, or decorative text) may be converted into searchable text. This could affect the context or "confuse" downstream processes like Large Language Models (LLMs) that analyze the document's content.
 - Logging:
-    - Ghostscript copyright showing in console is not an error.
+  - Ghostscript copyright showing in console is not an error.
 
 ### **Performance & Resource Usage**
 
@@ -112,10 +124,6 @@ When PDFs already contain native, selectable text (not just images), the script 
 - **Tabular Data:** Transforming tables into structured, searchable tabular data is challenging for OCR and this script may not accurately preserve table structures, leading to unstructured text output.
 - **Text Flow from Art:** Text embedded in images or artistic elements might be converted and placed on the same line relative to its original position within the document. This could lead to context issues when the document is analyzed by LLMs.
 - **Column Detection:** While column layouts are detected, complex or irregular source document layouts might result in some text being displaced or misaligned in the OCR output.
-
-
-
-
 
 ## **Troubleshooting**
 
