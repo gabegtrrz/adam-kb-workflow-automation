@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adam-kb-workflow-automation"
+version = "0.1.0"
+authors = [
+  { name="Gabriel Gutierrez", email="gab.goeden@gmail.com" },
+]
+description = "A library to automate OCR and Knowledge Base workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "cffi==1.17.1",                       # 
+    "charset-normalizer==3.4.2",          # 
+    "cryptography==45.0.3",               # 
+    "Deprecated==1.2.18",                 # 
+    "deprecation==2.1.0",                 # 
+    "img2pdf==0.6.1",                     # 
+    "lxml==5.4.0",                        # 
+    "markdown-it-py==3.0.0",              # 
+    "mdurl==0.1.2",                       # 
+    "ocrmypdf==16.10.2",                  # 
+    "packaging==25.0",                    # 
+    "pdfminer.six==20250506",             # 
+    "pi_heif==0.22.0",                    # 
+    "pikepdf==9.8.1",                     # 
+    "pillow==11.2.1",                     # 
+    "pluggy==1.6.0",                      # 
+    "pycparser==2.22",                    # 
+    "Pygments==2.19.1",                   # 
+    "pytesseract==0.3.13",                # 
+    "rich==14.0.0",                       # 
+    "typing_extensions==4.14.0",          # 
+    "wrapt==1.17.2",                      #
+]
+
+[project.urls]
