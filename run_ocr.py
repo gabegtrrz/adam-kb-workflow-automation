@@ -6,7 +6,7 @@ from pathlib import Path
 from multiprocessing import Pool, cpu_count
 from datetime import datetime
 import ocrmypdf.exceptions
-from tqdm import tqdm #progress bar
+# from tqdm import tqdm #progress bar
 
 
 # --- Logging Config --_
@@ -20,13 +20,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def ocr_worker(input_pdf_path_str: str, output_pdf_path_str: str):
+def ocr_worker(input_pdf_path_str: str, output_pdf_path_str: str, force_ocr: bool, language: str = 'eng+fil'):
     '''
     worker function to process single PDF files
 
     Args:
     - input_pdf_path_str (str)
     - output_pdf_path_str (str)
+    - force_ocr (bool): Whether to force OCR even if text is present.
+    - language (str): Language for OCR.
 
     Returns:
     - dict: dictionary containing:
@@ -39,13 +41,14 @@ def ocr_worker(input_pdf_path_str: str, output_pdf_path_str: str):
 
     '''
 
-    input_pdf_path = Path(input_pdf_path_str) # convert to Path object for easier handling
+    # input_pdf_path = Path(input_pdf_path_str) # convert to Path object for easier handling
 
     try: 
         ocrmypdf.ocr(
-            input_file= input_pdf_path,
+            input_file= input_pdf_path_str,
             output_file=output_pdf_path_str,
-            force_ocr=True,
+            force_ocr=force_ocr,
+            language=language,
             progress_bar=True,
             deskew=True
             )
@@ -67,14 +70,14 @@ def ocr_worker(input_pdf_path_str: str, output_pdf_path_str: str):
         
         return output
     
-    # except ocrmypdf.exceptions.InputFileError as e:
-    #     output = {
-    #         'status': 'error',
-    #         'input_file': input_pdf_path_str,
-    #         'error': f"Input file error: {e}"
-    #         }
+    except ocrmypdf.exceptions.InputFileError as e:
+        output = {
+            'status': 'error',
+            'input_file': input_pdf_path_str,
+            'error': f"Input file error: {e}"
+            }
         
-    #     return output
+        return output
         
     except Exception as e:
         output = {
@@ -94,6 +97,31 @@ def main():
     parser.add_argument(
         "input_folder", type=str, help="Path to the folder containing PDF files."
     )
+
+    # optional argument for forcing OCR
+    parser.add_argument(
+        "--force-ocr",
+        action="store_true",
+        help="Force OCR even if the document appears to have text. Default is False."
+    )
+
+    # optional argument for setting num of wrokers
+    parser.add_argument(
+        "--workers",
+        type=int,
+        # Default to total cores minus 2, but at least 1
+        default=max(1, cpu_count() - 2),
+        help=f"Set the number of parallel worker processes. Default: {max(1, cpu_count() - 2)}"
+    )
+    
+    # optional argument for specifying language
+    parser.add_argument(
+        "--language",
+        type=str,
+        default="eng",
+        help="Specify the OCR language (e.g., eng, fil). Default: eng+fil"
+    )
+
     args = parser.parse_args()
 
     input_folder_path = Path(args.input_folder)
@@ -105,10 +133,12 @@ def main():
         sys.exit(1)
     
     
-    # --- Create Folder Named with timestamp ---
+    # --- Create Folder ---
 
-    timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    output_folder_name = f"OUTPUT PDFs_{timestamp_str}"
+    # timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    # output_folder_name = f"OUTPUT_PDFs_{timestamp_str}"
+
+    output_folder_name = f"OCRed_PDFs_"
     output_folder_path = input_folder_path / output_folder_name
 
     try:
@@ -139,12 +169,12 @@ def main():
     tasks_for_starmap = []
 
     for pdf_file_path in pdf_files:
-        output_pdf_name = pdf_file_path.name
+        output_pdf_name = f'[OCR] {pdf_file_path.name}'
         output_pdf_full_path = output_folder_path / output_pdf_name
         # Output PDF Directory is in ### Create Folder Named with timestamp ### above
 
         tasks_for_starmap.append(
-            (str(pdf_file_path), str(output_pdf_full_path))
+            (str(pdf_file_path), str(output_pdf_full_path), args.force_ocr, args.language)
             )
 
     # --- Execute OCR with multiprocessing ---
@@ -152,9 +182,10 @@ def main():
     # determine number of CPU cores to use.
     # we want to use max and leaving 1 free core to avoid crashing
 
-    num_workers = max(1, cpu_count() - 1 if cpu_count() > 1 else 1)
+    num_workers = args.workers
 
     logger.info(f"Starting OCR processing using {num_workers} parallel processes.")
+    logger.info(f"OCR Language: '{args.language}', Force OCR: {args.force_ocr}")
     logger.info("Each OCR will use a single core.")
 
     results = []
@@ -163,6 +194,8 @@ def main():
         results = list(pool.starmap(func=ocr_worker,iterable= tasks_for_starmap))
 
         # tqdm(starmap_iterator, desc="Processing PDFs", total=len(tasks_for_starmap))
+
+    # --- Processing Summary ---
 
     successful_count = 0
     failed_files_info = []
@@ -173,7 +206,7 @@ def main():
         else:
             failed_files_info.append(f"- File: {Path(res['input_file']).name}, Error: {res['error']}")
     
-    logger.info("\n\n\n --- OCR Processing Summary ---")
+    logger.info("\n\n\n --- OCR Processing Summary ---\n")
     logger.info(f"Output folder: {output_folder_path}")
     logger.info(f"Total PDF files found: {len(pdf_files)}")
     logger.info(f"Successfully Processed: {successful_count} file(s).")
