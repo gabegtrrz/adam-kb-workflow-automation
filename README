@@ -13,6 +13,7 @@ To run this script, you'll need the following installed on your system:
 
 - **Python:** Version 3.8 or higher.
   - Download from: [python.org](https://www.python.org/downloads/)
+  - Download from: [python.org](https://www.python.org/downloads/)
 - **Tesseract OCR Engine:** A 64-bit installation of Tesseract is required.
   - **Windows:** You can easily install it using `winget`:
     ``` 
@@ -25,7 +26,10 @@ To run this script, you'll need the following installed on your system:
 - **Ghostscript:** A 64-bit version of Ghostscript is necessary for PDF processing.
   - Download from: [Ghostscript Official Website](https://ghostscript.com/releases/gsdnld.html)
   - *Note:* A compatible Windows Ghostscript executable might also be available in this project's Git repository (check `/requirements`).
+  - Download from: [Ghostscript Official Website](https://ghostscript.com/releases/gsdnld.html)
+  - *Note:* A compatible Windows Ghostscript executable might also be available in this project's Git repository (check `/requirements`).
 - **Libraries**
+  - [**OCRmyPDF**](https://www.notion.so/OCRmyPDF-2077c1ad9aee80bda5f1c63e8dba70c1?pvs=21)
   - [**OCRmyPDF**](https://www.notion.so/OCRmyPDF-2077c1ad9aee80bda5f1c63e8dba70c1?pvs=21)
 
 ### **Installation**
@@ -35,7 +39,17 @@ To run this script, you'll need the following installed on your system:
    git clone https://github.com/gabegtrrz/data-extraction-goeden.git
    cd data-extraction-goeden
    ```
+   ```bash
+   git clone https://github.com/gabegtrrz/data-extraction-goeden.git
+   cd data-extraction-goeden
+   ```
 2. **Install Python Libraries:** It's highly recommended to use a virtual environment.
+   ```bash
+   python -m venv venv
+   .\venv\Scripts\activate  # On Windows
+   source venv/bin/activate # On macOS/Linux
+   pip install -r requirements.txt
+   ```
    ```bash
    python -m venv venv
    .\venv\Scripts\activate  # On Windows
@@ -108,9 +122,12 @@ When PDFs already contain native, selectable text (not just images), the script 
 - **Loss of Source Fidelity & Vector Text:** Original crisp vector text will be converted to an image and then re-interpreted as text. This can result in:
   - **Reduced Text Crispness:** Text may appear slightly blurred or pixelated compared to its original vector form.
   - **Graphics Degradation:** Images and other vector graphics within the document may also decrease in quality.
+  - **Reduced Text Crispness:** Text may appear slightly blurred or pixelated compared to its original vector form.
+  - **Graphics Degradation:** Images and other vector graphics within the document may also decrease in quality.
 - **Partial Text Loss:** Some native text, especially if it's not highly visible, small, or part of complex layouts, might not be perfectly re-detected by the OCR engine and could remain as unsearchable image content.
 - **OCR of Logos/Art:** Images that contain text but are intended as graphics (like logos, watermarks, or decorative text) may be converted into searchable text. This could affect the context or "confuse" downstream processes like Large Language Models (LLMs) that analyze the document's content.
 - Logging:
+  - Ghostscript copyright showing in console is not an error.
   - Ghostscript copyright showing in console is not an error.
 
 ### **Performance & Resource Usage**
