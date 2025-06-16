@@ -56,7 +56,7 @@ def analyze_pdf(pdf_path: pathlib.Path) -> str:
     Analyzes a single PDF to determine its category based on text and image content.
 
     Args:
-        pdf_path: The file path of the PDF to analyze.
+        pdf_path [Path]: The file path of the PDF to analyze.
 
     Returns:
         The string name of the category folder for the PDF.
@@ -189,15 +189,111 @@ def create_directories(output_path: pathlib.Path, folder_names: list[str] = cate
             logger.error(f"Fatal: could not create directory {output_path}: {e}")
             sys.exit(1)
 
-def process_files (input_path: pathlib.Path, output_path: pathlib.Path):
+def process_files (input_path, output_path):
     '''
     Finds, analyzes, and moves all PDF files from the input path
     to the categorized output folders.
     '''
+    
+    try:
+        input_path = pathlib.Path(input_path)
+        output_path = pathlib.Path(output_path)
 
-    pdf_files = [f for f in input_path.glob]
+    except Exception as e:
+        logger.error(f'Invalid arguments: {e}')
+        return
+
+    ### Validate if valid input path
+   
+    try:
+        if input_path.is_dir():
+            logger.info(f'Found directory {input_path}.')
+        else:
+            raise NotADirectoryError(f"{input_path} is not a directory.")
+    except NotADirectoryError as e:
+        logger.error(f"Error: {e}")
+        # initialize pdf_files to empty list
+        pdf_files = []
+        return
 
 
-    pass
+    ### Collect PDF files from input directory
+
+    pdf_files = [file for file in input_path.iterdir() if 
+                 file.is_file() and file.suffix.lower() == ".pdf"]
+    if not pdf_files:
+        logger.info(f"No PDF files found in '{input_path}'. Nothing to do.")
+        return
+    
+    logger.info(f"Found {len(pdf_files)} PDF files to process.")
+    
+
+    ### Collect Categories from initialized category names located at beginning of this module.
+
+    category_folders = list(folder_categories.values())
+    create_directories(output_path, category_folders)
+
+    # Initialize summary counter
+    summary = {category_name: 0 for category_name in category_folders}
+
+    ### Iterate through the PDF files
+
+    for pdf_file in pdf_files:
+        logger.info(f'Analyzing "{pdf_file.name}"...')
+        category = analyze_pdf(pdf_file)
+        summary[category] += 1
+
+        ### Moving mechanism
+        destination_folder = output_path/category
+
+        try:
+            # The destination path must not already exist.
+            shutil.move(pdf_file,destination_folder)
+            logger.info(f"--> Moved '{pdf_file.name}' to '{category}'")
+
+
+        except Exception as e:
+            logger.error(f'Could not move "{pdf_file.name}" to "{destination_folder}": {e}. \n\nMoving on to next file.')
+            continue
+    
+    ### Print final summary ###
+
+    logger.info('\n\n\n--- Processing Summary ---\n')
+    logger.info(f'Total PDF files processed: {len(pdf_files)}')
+    for category_name, count in summary.items():
+        logger.info(f'- {category_name} : {count}')
+    logger.info('\n--Script Finished--\n')
+
+    def main():
+        '''
+        Main function to parse arguments and start the triage process.
+        '''
+
+        parser = argparse.ArgumentParser(
+            description='Sorts PDF files from an input folder into categorized output folders based on their text and image content.'
+        )
+
+        parser.add_argument(
+            'input_folder',
+            type='str',
+            help= 'Path to the folder containing PDF files to sort.'
+        )
+
+        parser.add_argument(
+            'output_folder',
+            type='str',
+            help= 'Path to the parent folder where categorized subfolders will be created.'
+        )
+
+        args = parser.parse_args()
+
+        input_path = args.input_folder
+        output_path = args.output_folder
+
+        process_files(input_path, output_path)
+
+if __name__ == '__main__':
+    main()
+
 
     
