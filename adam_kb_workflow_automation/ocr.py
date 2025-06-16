@@ -7,6 +7,9 @@ import argparse
 import ocrmypdf
 import ocrmypdf.exceptions
 
+from .triage import PdfTriage, OcrRequirement
+from .file_operations import FileMover
+
 logger = logging.getLogger(__name__)
 
 class OcrProcessor:
@@ -19,9 +22,11 @@ class OcrProcessor:
         Initializes the OcrProcessor with specific settings.
 
         Args:
-            force_ocr (bool): Whether to force OCR even if text is present.
-            language (str): Language(s) for OCR.
-            deskew (bool): Whether to deskew the image before OCR.
+            1. force_ocr (bool): Force OCR on all files.
+            2. language (str): Language for OCR.
+            3. skip_text (bool): Skip OCR on PDFs that already contain text layers.
+            4. redo_ocr (bool): If True, analyzes text and does OCR ONLY on images, preserving native text. Defaults to True.
+            5. deskew (bool): Deskew pages before OCR. Defaults to False.
         '''
         
         self.force_ocr = force_ocr
@@ -31,7 +36,7 @@ class OcrProcessor:
         self.redo_ocr = redo_ocr
 
 
-    def process_file(self, input_path_str: str, output_path_str: str = ""):
+    def process_file(self, input_path, output_path= "") -> dict:
         '''
         Worker function to process a single PDF file.
 
@@ -44,14 +49,18 @@ class OcrProcessor:
         '''
 
         # Converts path strings into Path objects
-        input_path=Path(input_path_str)
-        if output_path_str != "":
-            output_path = Path(output_path_str)
+        input_path=Path(input_path)
+        if output_path != "":
+            output_path = Path(output_path)
         else:
             # If no output path is provided, create a default output path
             output_path = input_path.parent / f"[OCR] {input_path.name}"
 
         try:
+            # Ensure the output directory exists right before processing
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+
             ocrmypdf.ocr(
                 input_file=input_path,
                 output_file=output_path,
@@ -89,27 +98,45 @@ class OcrProcessor:
 
 class BatchOCRRunner:
     '''
-    A class to manage batch OCR processing for a folder of PDFs.
-    This class handles finding files, setting up multiprocessing, and reporting.
+    Manages batch OCR processing with an intelligent triage step
+    to process only the necessary files.
     '''
     
     def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False):
         '''
-        Initializes the batch runner.
-
+        Initializes the batch runner
+        ---
         Args:
-            1.  input_folder (str): Path to the folder containing PDFs.
-            2.  force_ocr (bool): Force OCR on all files.
-            3.  language (str): Language for OCR.
-            workers (int): Number of parallel processes.
-                Defaults to = cpu_count() - 2.
+            1. input_folder (str): Path to the folder containing PDFs.
+            2. force_ocr (bool): Force OCR on all files.
+            3. language (str): Language for OCR.
+            4. skip_text (bool): Skip OCR on PDFs that already contain text layers.
+            5. redo_ocr (bool): Analyzes text, does OCR ONLY on images, preserving native text. Defaults to True.
+            6. workers (int): Number of parallel processes. Defaults to cpu_count() - 2.
+            7. deskew (bool): Deskew pages before OCR.
         '''
+
+        ### Initialize directories
         self.input_folder_path = Path(input_folder)
+        self.output_folder_path = self.input_folder_path / "OCRed_PDFs"
+
+        ### Initialize Folder Names for Sorting OcrRequirement
+
+        self.ocr_required_folder = 'OCRed_Files'
+        self.ocr_not_required_folder = 'Skipped_No_OCR_Required'
+        self.empty_or_corrupt_folder = 'Errors_or_Empty'
+
+
+
         self.force_ocr = force_ocr
         self.language = language
         self.skip_text = skip_text
         self.redo_ocr = redo_ocr
-
+        self.deskew = deskew
+        
+        # Instantiate helper classes
+        self.triage = PdfTriage()
+        self.mover = FileMover(base_output_dir=self.output_folder_path)
 
         if workers == -1:
             self.num_workers = max(1, cpu_count() - 2)
@@ -118,22 +145,15 @@ class BatchOCRRunner:
         else:
             logger.error('Workers argument cannot be less than 1. Setting workers to 1.')
             self.num_workers = 1
-        
-        
-    def _prepare_tasks(self, output_folder_path: Path) -> list[tuple[OcrProcessor, Path, Path]]:
-        '''Prepares the list of tasks for multiprocessing.'''
 
-        # output_folder_path = Path(output_folder)
 
-        pdf_files = [p for p in self.input_folder_path.iterdir() if p.is_file() and p.suffix.lower() == '.pdf']
 
-        if not pdf_files:
-            logger.info("No PDF files found in the input folder.")
-            return []
+    def _prepare_tasks(self, output_folder_path) -> list[tuple[OcrProcessor, Path, Path]]:
+        '''
+        1. Classifies files, and
+        2. Prepares a list of tasks ONLY for those needing OCR using multiprocessing.'''
 
-        logger.info(f'Found {len(pdf_files)} PDF files to process.')
-
-        # We instantiate the processor here to pass its method to the pool
+        tasks = []
         processor = OcrProcessor(
             self.force_ocr,
             self.language,
@@ -141,50 +161,90 @@ class BatchOCRRunner:
             redo_ocr = self.redo_ocr
             )
 
+        output_folder_path = Path(output_folder_path)
 
-        tasks = []
+        ### Iterate through each PDF
+
         for pdf_path in pdf_files:
-            ### Name output path for each input pdf
-            output_pdf_name = f'[OCR] {pdf_path.name}'
-            output_pdf_full_path = output_folder_path / output_pdf_name
 
-            tasks.append((processor, pdf_path, output_pdf_full_path))
+            ### Classify PDF if it needs OCR
+            ocr_decision = self.triage.classify(pdf_path)
+
+            if ocr_decision == OcrRequirement.OCR_REQUIRED:
+                output_path = self.output_folder_path / self.ocr_required_folder / f'[OCR] {pdf_path.name}'
+
+            elif ocr_decision == OcrRequirement.OCR_NOT_REQUIRED:
+                self.mover.move_file(source_path=pdf_path, destination_folder_name=self.ocr_not_required_folder)
+            elif ocr_decision == OcrRequirement.EMPTY_OR_CORRUPT:
+                self.mover.move_file(source_path=pdf_path, destination_folder_name=self.empty_or_corrupt_folder)
+            
+        return tasks
+        
+        # 
+        #     ### Name output path for each input pdf
+        #     output_pdf_name = f'[OCR] {pdf_path.name}'
+        #     output_pdf_full_path = output_folder_path / output_pdf_name
+
+        #     tasks.append((processor, pdf_path, output_pdf_full_path))
             
         return tasks
     
+    @staticmethod
+    def worker_adapter(processor: OcrProcessor, input_p, output_p):
+        return processor.process_file(input_p, output_p)
+
+
     def run_batch(self):
         '''
-        Executes the batch OCR process on the entire folder.
+        Executes the intelligent batch OCR process on the entire folder.
         '''
         if not self.input_folder_path.is_dir():
             logger.error(f"Error: The provided path '{self.input_folder_path}' is not a valid directory.")
             return
 
-        # Create the output folder
+        ### INPUT: Validate input_folder contains PDFs
+        pdf_files = [p for p in self.input_folder_path.iterdir() if p.is_file() and p.suffix.lower() == '.pdf']
+
+        if not pdf_files:
+            logger.info("No PDF files found in the input folder.")
+            return []
+
+        logger.info(f'Found {len(pdf_files)} PDF files.')
+        
+
+        # OUTPUT: Create the output folder
         output_folder_path = self.input_folder_path / "OCRed_PDFs"
         try:
             output_folder_path.mkdir(parents=True, exist_ok=True)
         except Exception as e:
             logger.error(f'Could not create output folder "{output_folder_path}". Error: {e}')
+            logger.error('BatchOCRRunner.run_batch execution halted.')
             return
 
-        tasks = self._prepare_tasks(output_folder_path)
-        if not tasks:
+        ### Task creation
+
+        tasks_for_ocr = self._prepare_tasks(output_folder_path)
+        if not tasks_for_ocr:
+            logger.info("Triage complete. No files required OCR processing.")
             return
+
+        logger.info(f"Triage complete. {len(tasks_for_ocr)} files require OCR. Starting parallel processing...")
+
 
         logger.info(f"Starting OCR processing using {self.num_workers} parallel processes.")
         logger.info(f"OCR Language: '{self.language}', Force OCR: {self.force_ocr}")
 
+
+        ### Begin Worker Multiprocessing
+
         with Pool(processes=self.num_workers) as pool:
-            results = pool.starmap(BatchOCRRunner.worker_adapter, tasks)
+            results = pool.starmap(BatchOCRRunner.worker_adapter, tasks_for_ocr)
 
         self._log_summary(results, output_folder_path)
 
 ### Helper function to unpack arguments for starmap. ###
 # This does the actual processing. Crucially, it calls `process_file()` function.
-    @staticmethod
-    def worker_adapter(processor: OcrProcessor, input_p, output_p):
-        return processor.process_file(input_p, output_p)
+
 
     def _log_summary(self, results: list, output_folder: Path):
         """Logs a summary of the batch processing results."""
