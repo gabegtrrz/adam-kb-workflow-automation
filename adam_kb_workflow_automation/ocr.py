@@ -14,7 +14,7 @@ class OcrProcessor:
     A class to perform OCR on a single PDF file using OCRmyPDF.
     This class encapsulates the logic for processing one file.
     '''
-    def __init__(self, force_ocr: bool=False, language: str='eng', skip_text=False, redo_ocr=False, deskew: bool=True):
+    def __init__(self, force_ocr: bool=False, language: str='eng', skip_text=False, redo_ocr=True, deskew: bool=False):
         '''
         Initializes the OcrProcessor with specific settings.
 
@@ -93,7 +93,7 @@ class BatchOCRRunner:
     This class handles finding files, setting up multiprocessing, and reporting.
     '''
     
-    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=False, workers: int = -1):
+    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False):
         '''
         Initializes the batch runner.
 
@@ -174,17 +174,17 @@ class BatchOCRRunner:
 
         logger.info(f"Starting OCR processing using {self.num_workers} parallel processes.")
         logger.info(f"OCR Language: '{self.language}', Force OCR: {self.force_ocr}")
-        
-        ### Helper function to unpack arguments for starmap. ###
-        # This does the actual processing. Crucially, it calls `process_file()` function.
-        def worker_adapter(processor, input_p, output_p):
-            return processor.process_file(input_p, output_p)
-
 
         with Pool(processes=self.num_workers) as pool:
-            results = pool.starmap(worker_adapter, tasks)
+            results = pool.starmap(BatchOCRRunner.worker_adapter, tasks)
 
         self._log_summary(results, output_folder_path)
+
+### Helper function to unpack arguments for starmap. ###
+# This does the actual processing. Crucially, it calls `process_file()` function.
+    @staticmethod
+    def worker_adapter(processor: OcrProcessor, input_p, output_p):
+        return processor.process_file(input_p, output_p)
 
     def _log_summary(self, results: list, output_folder: Path):
         """Logs a summary of the batch processing results."""
@@ -231,8 +231,8 @@ def main_cli():
 
     parser.add_argument(
         "--redo_ocr",
-        action="store_true",
-        help="Forces OCR to be performed, even if a text layer already exists. This can be useful for correcting errors or improving text quality. Default is False."
+        action="store_false",
+        help="Add argument to disable. Default = True: Forces OCR to be performed, even if a text layer already exists. This can be useful for correcting errors or improving text quality."
     )
 
     parser.add_argument(
@@ -246,6 +246,12 @@ def main_cli():
         type=str,
         default="eng",
         help="Specify the OCR language (e.g., eng, fil). Default: eng"
+    )
+
+    parser.add_argument(
+        "--deskew",
+        action="store_true",
+        help="Automatically deskews (corrects the rotation of) each page before performing OCR.  Improves accuracy, but may increase processing time. Default is False."
     )
 
     args = parser.parse_args()
@@ -264,7 +270,8 @@ def main_cli():
         language=args.language,
         workers=args.workers,
         skip_text = args.skip_text,
-        redo_ocr = args.redo_ocr
+        redo_ocr = args.redo_ocr,
+        deskew = args.deskew
     )
     
     runner.run_batch()
