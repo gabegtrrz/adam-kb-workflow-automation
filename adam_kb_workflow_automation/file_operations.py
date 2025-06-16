@@ -12,7 +12,7 @@ class FileMover:
     """
     def __init__(self, base_output_dir):
         """
-        Initializes the PdfMover with a base directory for all output.
+        Initializes the FileMover with a base directory for all output.
 
         The constructor will attempt to create this base directory if it
         does not already exist, ensuring it's ready for use.
