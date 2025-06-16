@@ -9,14 +9,14 @@ import ocrmypdf.exceptions
 
 logger = logging.getLogger(__name__)
 
-class OCRProcessor:
+class OcrProcessor:
     '''
     A class to perform OCR on a single PDF file using OCRmyPDF.
     This class encapsulates the logic for processing one file.
     '''
-    def __init__(self, force_ocr: bool=False, language: str='eng', deskew: bool=True):
+    def __init__(self, force_ocr: bool=False, language: str='eng', skip_text=False, redo_ocr=False, deskew: bool=True):
         '''
-        Initializes the OCRProcessor with specific settings.
+        Initializes the OcrProcessor with specific settings.
 
         Args:
             force_ocr (bool): Whether to force OCR even if text is present.
@@ -27,6 +27,9 @@ class OCRProcessor:
         self.force_ocr = force_ocr
         self.language = language
         self.deskew = deskew
+        self.skip_text = skip_text
+        self.redo_ocr = redo_ocr
+
 
     def process_file(self, input_path_str: str, output_path_str: str = ""):
         '''
@@ -55,7 +58,9 @@ class OCRProcessor:
                 force_ocr=self.force_ocr,
                 language=self.language,
                 progress_bar=True,
-                deskew=self.deskew
+                deskew=self.deskew,
+                skip_text = self.skip_text,
+                redo_ocr = self.redo_ocr
             )
             return {
                 'status': 'success',
@@ -88,7 +93,7 @@ class BatchOCRRunner:
     This class handles finding files, setting up multiprocessing, and reporting.
     '''
     
-    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', workers: int = -1):
+    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=False, workers: int = -1):
         '''
         Initializes the batch runner.
 
@@ -102,6 +107,10 @@ class BatchOCRRunner:
         self.input_folder_path = Path(input_folder)
         self.force_ocr = force_ocr
         self.language = language
+        self.skip_text = skip_text
+        self.redo_ocr = redo_ocr
+
+
         if workers == -1:
             self.num_workers = max(1, cpu_count() - 2)
         elif workers > 0:
@@ -111,7 +120,7 @@ class BatchOCRRunner:
             self.num_workers = 1
         
         
-    def _prepare_tasks(self, output_folder_path: Path) -> list[tuple[OCRProcessor, Path, Path]]:
+    def _prepare_tasks(self, output_folder_path: Path) -> list[tuple[OcrProcessor, Path, Path]]:
         '''Prepares the list of tasks for multiprocessing.'''
 
         # output_folder_path = Path(output_folder)
@@ -125,7 +134,12 @@ class BatchOCRRunner:
         logger.info(f'Found {len(pdf_files)} PDF files to process.')
 
         # We instantiate the processor here to pass its method to the pool
-        processor = OCRProcessor(self.force_ocr, self.language)
+        processor = OcrProcessor(
+            self.force_ocr,
+            self.language,
+            skip_text = self.skip_text,
+            redo_ocr = self.redo_ocr
+            )
 
 
         tasks = []
@@ -202,11 +216,25 @@ def main_cli():
     parser.add_argument(
         "input_folder", type=str, help="Path to the folder containing PDF files."
     )
+
     parser.add_argument(
-        "--force-ocr",
+        "--force_ocr",
         action="store_true",
         help="Force OCR even if the document appears to have text. Default is False."
     )
+
+    parser.add_argument(
+        "--skip_text",
+        action="store_true",
+        help="Skips OCR on PDFs that already contain text layers. Default is False."
+    )
+
+    parser.add_argument(
+        "--redo_ocr",
+        action="store_true",
+        help="Forces OCR to be performed, even if a text layer already exists. This can be useful for correcting errors or improving text quality. Default is False."
+    )
+
     parser.add_argument(
         "--workers",
         type=int,
@@ -234,7 +262,9 @@ def main_cli():
         input_folder=args.input_folder,
         force_ocr=args.force_ocr,
         language=args.language,
-        workers=args.workers
+        workers=args.workers,
+        skip_text = args.skip_text,
+        redo_ocr = args.redo_ocr
     )
     
     runner.run_batch()
