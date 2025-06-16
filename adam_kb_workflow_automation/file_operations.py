@@ -5,7 +5,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-class PdfMover:
+class FileMover:
     """
     A class responsible for moving files into categorized sub-directories
     within a main output folder.
