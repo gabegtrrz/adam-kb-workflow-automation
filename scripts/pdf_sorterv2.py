@@ -264,33 +264,33 @@ def process_files (input_path, output_path):
         logger.info(f'- {category_name} : {count}')
     logger.info('\n--Script Finished--\n')
 
-    def main():
-        '''
-        Main function to parse arguments and start the triage process.
-        '''
+def main():
+    '''
+    Main function to parse arguments and start the triage process.
+    '''
 
-        parser = argparse.ArgumentParser(
-            description='Sorts PDF files from an input folder into categorized output folders based on their text and image content.'
-        )
+    parser = argparse.ArgumentParser(
+        description='Sorts PDF files from an input folder into categorized output folders based on their text and image content.'
+    )
 
-        parser.add_argument(
-            'input_folder',
-            type='str',
-            help= 'Path to the folder containing PDF files to sort.'
-        )
+    parser.add_argument(
+        'input_folder',
+        type='str',
+        help= 'Path to the folder containing PDF files to sort.'
+    )
 
-        parser.add_argument(
-            'output_folder',
-            type='str',
-            help= 'Path to the parent folder where categorized subfolders will be created.'
-        )
+    parser.add_argument(
+        'output_folder',
+        type='str',
+        help= 'Path to the parent folder where categorized subfolders will be created.'
+    )
 
-        args = parser.parse_args()
+    args = parser.parse_args()
 
-        input_path = args.input_folder
-        output_path = args.output_folder
+    input_path = args.input_folder
+    output_path = args.output_folder
 
-        process_files(input_path, output_path)
+    process_files(input_path, output_path)
 
 if __name__ == '__main__':
     main()
