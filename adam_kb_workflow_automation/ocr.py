@@ -3,12 +3,13 @@ import sys
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 import argparse
+from enum import Enum, auto
 
 import ocrmypdf
 import ocrmypdf.exceptions
 
-from .triage import PdfTriage, OcrRequirement
-from .file_operations import FileMover
+from triage import PdfTriage, OcrRequirement
+from file_operations import FileMover
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,19 @@ class BatchOCRRunner:
     Manages batch OCR processing with an intelligent triage step
     to process only the necessary files.
     '''
-    
+
+    CATEGORY_FOLDERS = {
+        OcrRequirement.OCR_REQUIRED: 'OCRed_Files',
+        OcrRequirement.OCR_NOT_REQUIRED: 'Skipped_No_OCR_Required',
+        OcrRequirement.EMPTY_OR_CORRUPT: 'Empty_or_Error'
+    }
+
+    CATEGORY_COUNT = {
+        OcrRequirement.OCR_REQUIRED: 0,
+        OcrRequirement.OCR_NOT_REQUIRED: 0,
+        OcrRequirement.EMPTY_OR_CORRUPT: 0
+    }
+
     def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False):
         '''
         Initializes the batch runner
@@ -125,6 +138,8 @@ class BatchOCRRunner:
         self.OCR_REQUIRED_FOLDER = 'OCRed_Files'
         self.OCR_NOT_REQUIRED_FOLDER = 'Skipped_No_OCR_Required'
         self.EMPTY_OR_CORRUPT_FOLDER = 'Errors_or_Empty'
+
+        ### Initialize OCR Processor Args
 
         self.force_ocr = force_ocr
         self.language = language
@@ -241,11 +256,6 @@ class BatchOCRRunner:
 
         ocr_required = []
 
-        cat_1_count = 0
-        cat_2_count = 0
-        cat_3_count = 0
-
-
         ### Iterate through each PDF
         for pdf_path in pdf_files:
 
@@ -255,22 +265,24 @@ class BatchOCRRunner:
             if ocr_decision == OcrRequirement.OCR_REQUIRED:
                 ocr_required.append(pdf_path)
 
-                cat_1_count += 1
+                self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED] += 1
 
             elif ocr_decision == OcrRequirement.OCR_NOT_REQUIRED:
-                self.mover.move_file(source_path=pdf_path, destination_folder_name=self.OCR_NOT_REQUIRED_FOLDER)
+                self.mover.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_NOT_REQUIRED])
 
-                cat_2_count += 1
+                self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED] += 1
 
             elif ocr_decision == OcrRequirement.EMPTY_OR_CORRUPT:
-                self.mover.move_file(source_path=pdf_path, destination_folder_name=self.EMPTY_OR_CORRUPT_FOLDER)
+                self.mover.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.EMPTY_OR_CORRUPT])
 
-                cat_3_count += 1
+                self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT] += 1
+        
+        self.CATEGORY_COUNT
         
         logger.info('Triage complete')
-        logger.info(f'{OcrRequirement.OCR_REQUIRED.name} : {cat_1_count} files')
-        logger.info(f'{OcrRequirement.OCR_NOT_REQUIRED.name} : {cat_2_count} files')
-        logger.info(f'{OcrRequirement.EMPTY_OR_CORRUPT.name} : {cat_3_count} files')
+        logger.info(f'{OcrRequirement.OCR_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED]} files')
+        logger.info(f'{OcrRequirement.OCR_NOT_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED]} files')
+        logger.info(f'{OcrRequirement.EMPTY_OR_CORRUPT.name} : {self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT]} files')
 
         return ocr_required
 
@@ -304,7 +316,7 @@ class BatchOCRRunner:
         ### Iterate through each PDF
 
         for pdf_path in pdf_files:
-            output_path = self.output_folder_path / self.OCR_REQUIRED_FOLDER / f'[OCR] {pdf_path.name}'
+            output_path = self.output_folder_path / self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED] / f'[OCR] {pdf_path.name}'
             tasks.append((processor, pdf_path, output_path))
             
         return tasks
