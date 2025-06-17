@@ -61,7 +61,7 @@ class FileMover:
             # Move the file. shutil.move is great because it handles moving across different drives.
             shutil.move(str(source_path), str(final_destination_path))
             
-            logger.info(f"--> Moved '{source_path.name}' to '{destination_folder_name}' folder.")
+            logger.info(f"--> Moved '{source_path.name}' \n to '{destination_folder_name}' folder.")
 
         except Exception as e:
             logger.error(f"Failed to move '{source_path.name}'. Error: {e}")
