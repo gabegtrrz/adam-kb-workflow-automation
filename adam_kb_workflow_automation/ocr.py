@@ -115,6 +115,8 @@ class BatchOCRRunner:
         OcrRequirement.EMPTY_OR_CORRUPT: 0
     }
 
+    pdfs_found_count = 0
+
     def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False):
         '''
         Initializes the batch runner
@@ -189,7 +191,9 @@ class BatchOCRRunner:
             logger.error(f"Exception occurred while scanning for PDFs: {e}")
             return []
 
-        logger.info(f'Found {len(pdf_files)} PDF files.')
+
+        self.pdfs_found_count = len(pdf_files)
+        logger.info(f'Found {self.pdfs_found_count} PDF files.')
 
         return pdf_files
     
@@ -329,7 +333,10 @@ class BatchOCRRunner:
 
         logger.info("\n\n--- OCR Processing Summary ---\n")
         logger.info(f"Output folder: {output_folder}")
-        logger.info(f"Total PDF files found: {len(results)}")
+        logger.info(f"Total PDF files found: {self.pdfs_found_count}")
+        logger.info(f'{OcrRequirement.OCR_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED]} files')
+        logger.info(f'{OcrRequirement.OCR_NOT_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED]} files')
+        logger.info(f'{OcrRequirement.EMPTY_OR_CORRUPT.name} : {self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT]} files')
         logger.info(f"Successfully Processed: {successful_count} file(s).")
         logger.info("---------------------")
         logger.info(f"Used {self.num_workers} parallel processes.")
