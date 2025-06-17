@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 import argparse
-from enum import Enum, auto
+from datetime import datetime
 
 import ocrmypdf
 import ocrmypdf.exceptions
@@ -161,6 +161,9 @@ class BatchOCRRunner:
             logger.error('Workers argument cannot be less than 1. Setting workers to 1.')
             self.num_workers = 1
 
+        # Initialize Timestamp
+        self.time_started = datetime.now()
+    
     
     ### Helper function to unpack arguments for starmap. ###
     # This does the actual processing. Crucially, it calls `process_file()` function.
@@ -234,7 +237,12 @@ class BatchOCRRunner:
         ### Begin Worker Multiprocessing
 
         with Pool(processes=self.num_workers) as pool:
-            results = pool.starmap(BatchOCRRunner.worker_adapter, tasks_for_ocr)
+            # 1. pool.starmap returns an iterator over the results.
+            # 2. tqdm wraps that iterator to monitor progress.
+            # 3. list() consumes the iterator, pulling each result, which drives the progress bar.
+            results = list(tqdm(pool.starmap(BatchOCRRunner.worker_adapter, tasks_for_ocr), total=len(tasks_for_ocr)))
+
+            # results = pool.starmap(BatchOCRRunner.worker_adapter, tasks_for_ocr)
 
         self._log_summary(results, output_folder_path)
 
@@ -332,6 +340,7 @@ class BatchOCRRunner:
         failed_files = [res for res in results if res['status'] == 'error']
 
         logger.info("\n\n--- OCR Processing Summary ---\n")
+        logger.info(f"Time Started: {self.time_started.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"Output folder: {output_folder}")
         logger.info(f"Total PDF files found: {self.pdfs_found_count}")
         logger.info(f'{OcrRequirement.OCR_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED]} files')
