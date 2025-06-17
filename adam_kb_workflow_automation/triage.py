@@ -57,11 +57,11 @@ class PdfTriage:
             logger.error(f"TRIAGE: Failed during page analysis of '{pdf_path.name}': {e}")
             doc.close()
             return OcrRequirement.EMPTY_OR_CORRUPT
-        
-        doc.close()
 
         ### Classification Logic ### 
         percentage_textual = textual_pages_count / doc.page_count
+        
+        doc.close()
         
         # If 95% or more of the pages are textual, we can safely skip OCR.
         # This assumes that for documents with fewer than 5% scanned pages,
@@ -74,3 +74,4 @@ class PdfTriage:
         else:
             logger.info(f"TRIAGE: '{pdf_path.name}' is not sufficiently text-based ({percentage_textual:.0%}). OCR required.")
             return OcrRequirement.OCR_REQUIRED
+        
