@@ -11,6 +11,8 @@ import ocrmypdf.exceptions
 from triage import PdfTriage, OcrRequirement
 from file_operations import FileMover
 
+from tqdm import tqdm
+
 logger = logging.getLogger(__name__)
 
 class OcrProcessor:
@@ -67,7 +69,7 @@ class OcrProcessor:
                 output_file=output_path,
                 force_ocr=self.force_ocr,
                 language=self.language,
-                progress_bar=True,
+                progress_bar=False,
                 deskew=self.deskew,
                 skip_text = self.skip_text,
                 redo_ocr = self.redo_ocr
@@ -103,12 +105,14 @@ class BatchOCRRunner:
     to process only the necessary files.
     '''
 
+    ### Initialize Folder Names for Sorting OcrRequirement
     CATEGORY_FOLDERS = {
-        OcrRequirement.OCR_REQUIRED: 'OCRed_Files',
-        OcrRequirement.OCR_NOT_REQUIRED: 'Skipped_No_OCR_Required',
+        OcrRequirement.OCR_REQUIRED: 'Original PDFs',
+        OcrRequirement.OCR_NOT_REQUIRED: 'Skipped_PDFs_No_OCR_Required',
         OcrRequirement.EMPTY_OR_CORRUPT: 'Empty_or_Error'
     }
 
+    ### Initialize Category Count
     CATEGORY_COUNT = {
         OcrRequirement.OCR_REQUIRED: 0,
         OcrRequirement.OCR_NOT_REQUIRED: 0,
@@ -134,12 +138,6 @@ class BatchOCRRunner:
         ### Initialize directories
         self.input_folder_path = Path(input_folder)
         self.output_folder_path = self.input_folder_path / "OCRed_PDFs"
-
-        ### Initialize Folder Names for Sorting OcrRequirement
-
-        self.OCR_REQUIRED_FOLDER = 'OCRed_Files'
-        self.OCR_NOT_REQUIRED_FOLDER = 'Skipped_No_OCR_Required'
-        self.EMPTY_OR_CORRUPT_FOLDER = 'Errors_or_Empty'
 
         ### Initialize OCR Processor Args
 
@@ -206,7 +204,7 @@ class BatchOCRRunner:
         Executes the intelligent batch OCR process on the entire folder.
         '''
         
-        # OUTPUT: Create the output folder
+        # OUTPUT: Create the results output folder
         output_folder_path = self.input_folder_path / "OCRed_PDFs"
         try:
             output_folder_path.mkdir(parents=True, exist_ok=True)
@@ -216,10 +214,10 @@ class BatchOCRRunner:
             return
         
         all_pdf_files = self._get_pdfs()
-        sorted_pdfs = self._classify_and_sort_pdfs(pdf_files=all_pdf_files, output_folder_path=output_folder_path)
+        sorted_pdfs = self._classify_and_sort_pdfs(pdf_files=all_pdf_files, output_folder_path=output_folder_path.parent)
 
         ### Task creation
-
+        
         tasks_for_ocr = self._prepare_tasks(pdf_files=sorted_pdfs, output_folder_path=output_folder_path)
         
     
@@ -275,7 +273,9 @@ class BatchOCRRunner:
             ocr_decision = self.triage.classify(pdf_path)
 
             if ocr_decision == OcrRequirement.OCR_REQUIRED:
-                ocr_required.append(pdf_path)
+                self.mover.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED])
+                new_path = self.output_folder_path/self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED]/pdf_path.name
+                ocr_required.append(new_path)
 
                 self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED] += 1
 
@@ -328,7 +328,7 @@ class BatchOCRRunner:
         ### Iterate through each PDF
 
         for pdf_path in pdf_files:
-            output_path = self.output_folder_path / self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED] / f'[OCR] {pdf_path.name}'
+            output_path = self.output_folder_path / f'[OCR] {pdf_path.name}'
             tasks.append((processor, pdf_path, output_path))
             
         return tasks
