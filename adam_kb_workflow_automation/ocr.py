@@ -20,7 +20,7 @@ class OcrProcessor:
     A class to perform OCR on a single PDF file using OCRmyPDF.
     This class encapsulates the logic for processing one file.
     '''
-    def __init__(self, force_ocr: bool=False, language: str='eng', skip_text=False, redo_ocr=True, deskew: bool=False, **kwargs):
+    def __init__(self, force_ocr: bool=False, language: str='eng', skip_text=False, redo_ocr=True, deskew: bool=False, copy_files: bool = False, **kwargs):
         '''
         Initializes the OcrProcessor with specific settings.
 
@@ -30,6 +30,7 @@ class OcrProcessor:
             3. skip_text (bool): Skip OCR on PDFs that already contain text layers.
             4. redo_ocr (bool): If True, analyzes text and does OCR ONLY on images, preserving native text. Defaults to True.
             5. deskew (bool): Deskew pages before OCR. Defaults to False.
+            6. copy_files (bool): If True, copies files instead of moving them. Defaults to False (move).
         '''
         
         self.force_ocr = force_ocr
@@ -162,7 +163,7 @@ class BatchOCRRunner:
         
         # Instantiate helper classes
         self.triage = PdfTriage()
-        self.mover = FileOps(base_output_dir=self.output_folder_path)
+        self.file_op = FileOps(base_output_dir=self.output_folder_path)
 
         if workers == -1:
             self.num_workers = max(1, cpu_count() - 2)
@@ -266,12 +267,12 @@ class BatchOCRRunner:
         Returns:
             list: List of PDF file paths that require OCR processing.
         Side Effects:
-            - Moves files that do not require OCR or are empty/corrupt to designated folders.
+            - Copies files that do not require OCR or are empty/corrupt to designated folders.
             - Logs the count of files in each classification category.
         Classification Categories:
             - OCR_REQUIRED: Files that require OCR processing (returned in the list).
-            - OCR_NOT_REQUIRED: Files that do not require OCR (moved to a specific folder).
-            - EMPTY_OR_CORRUPT: Files that are empty or corrupt (moved to a specific folder).
+            - OCR_NOT_REQUIRED: Files that do not require OCR (copied to a specific folder).
+            - EMPTY_OR_CORRUPT: Files that are empty or corrupt (copied to a specific folder).
         """
         output_folder_path = Path(output_folder_path)
 
@@ -284,19 +285,19 @@ class BatchOCRRunner:
             ocr_decision = self.triage.classify(pdf_path)
 
             if ocr_decision == OcrRequirement.OCR_REQUIRED:
-                self.mover.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED])
+                self.file_op.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED])
                 new_path = self.output_folder_path/self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED]/pdf_path.name
                 ocr_required.append(new_path)
 
                 self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED] += 1
 
             elif ocr_decision == OcrRequirement.OCR_NOT_REQUIRED:
-                self.mover.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_NOT_REQUIRED])
+                self.file_op.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_NOT_REQUIRED])
 
                 self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED] += 1
 
             elif ocr_decision == OcrRequirement.EMPTY_OR_CORRUPT:
-                self.mover.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.EMPTY_OR_CORRUPT])
+                self.file_op.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.EMPTY_OR_CORRUPT])
 
                 self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT] += 1
         
@@ -472,6 +473,12 @@ def main_cli():
         help="Automatically deskews (corrects the rotation of) each page before performing OCR.  Improves accuracy, but may increase processing time. Default is False."
     )
 
+    parser.add_argument(
+        "--copy",
+        action="store_true",
+        help="Copy files instead of moving them. Default behavior is to move."
+    )
+
     args, unknown_args = parser.parse_known_args()
     # parse_known_args() intelligently separates the arguments it knows from the ones it doesn't.
     # It returns two things:
@@ -513,6 +520,7 @@ def main_cli():
     runner = BatchOCRRunner(
         input_folder=args.input_folder, # separate for clarity, code safety, and separation of concerns
         workers=args.workers,
+        copy_files=args.copy,
         **ocr_kwargs
     )
     
