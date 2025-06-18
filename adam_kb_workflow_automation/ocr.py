@@ -344,23 +344,44 @@ class BatchOCRRunner:
         successful_count = sum(1 for res in results if res['status'] == 'success')
         failed_files = [res for res in results if res['status'] == 'error']
 
-        logger.info("\n\n--- OCR Processing Summary ---\n")
-        logger.info(f"Time Started: {self.time_started.strftime('%Y-%m-%d %H:%M:%S')}")
-        logger.info(f"Output folder: {output_folder}")
-        logger.info("---------------------")
-        logger.info(f"Total PDF files found: {self.pdfs_found_count}")
-        logger.info(f'{OcrRequirement.OCR_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED]} files')
-        logger.info(f'{OcrRequirement.OCR_NOT_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED]} files')
-        logger.info(f'{OcrRequirement.EMPTY_OR_CORRUPT.name} : {self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT]} files')
-        logger.info(f"Successfully Processed: {successful_count} file(s)")
-        logger.info("---------------------")
-        logger.info(f"Used {self.num_workers} parallel processes.")
-        logger.info(f"OCR Language: '{self.language}'")
-        logger.info(f"Force OCR: {self.force_ocr}")
-        logger.info(f"Skip Text: {self.skip_text}")
-        logger.info(f"Redo OCR: {self.redo_ocr}")
-        logger.info(f"Deskew: {self.deskew}")
-        logger.info("---------------------")
+        summary = (
+            "\n\n--- OCR Processing Summary ---\n"
+            f"Output folder: {output_folder}\n"
+            "------------------------------\n"
+            f"Total PDF files found: {self.pdfs_found_count}\n"
+            f"{OcrRequirement.OCR_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED]} files\n"
+            f"{OcrRequirement.OCR_NOT_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED]} files\n"
+            f"{OcrRequirement.EMPTY_OR_CORRUPT.name} : {self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT]} files\n"
+            f"Successfully Processed: {successful_count} file(s)\n"
+            "------------------------------\n"
+            f"Used {self.num_workers} parallel processes.\n"
+            f"OCR Language: '{self.language}'\n"
+            f"Force OCR: {self.force_ocr}\n"
+            f"Skip Text: {self.skip_text}\n"
+            f"Redo OCR: {self.redo_ocr}\n"
+            f"Deskew: {self.deskew}\n"
+            "------------------------------\n"
+        )
+
+        logger.info(summary)
+        
+
+        # logger.info("\n\n--- OCR Processing Summary ---\n")
+        # logger.info(f"Output folder: {output_folder}")
+        # logger.info("---------------------")
+        # logger.info(f"Total PDF files found: {self.pdfs_found_count}")
+        # logger.info(f'{OcrRequirement.OCR_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED]} files')
+        # logger.info(f'{OcrRequirement.OCR_NOT_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED]} files')
+        # logger.info(f'{OcrRequirement.EMPTY_OR_CORRUPT.name} : {self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT]} files')
+        # logger.info(f"Successfully Processed: {successful_count} file(s)")
+        # logger.info("---------------------")
+        # logger.info(f"Used {self.num_workers} parallel processes.")
+        # logger.info(f"OCR Language: '{self.language}'")
+        # logger.info(f"Force OCR: {self.force_ocr}")
+        # logger.info(f"Skip Text: {self.skip_text}")
+        # logger.info(f"Redo OCR: {self.redo_ocr}")
+        # logger.info(f"Deskew: {self.deskew}")
+        # logger.info("---------------------")
 
         if failed_files:
             logger.warning(f"Failed to OCR: {len(failed_files)} file(s). Details below:")
@@ -368,7 +389,23 @@ class BatchOCRRunner:
                 logger.warning(f"- File: {Path(info['input_file']).name}, Error: {info['error']}")
         else:
             logger.info("All found PDF files processed successfully!")
-        logger.info("Script finished.\n")
+        
+        time_finished = datetime.now()
+        duration = time_finished - self.time_started
+
+        final_timestamps = (
+            f"Time Started: {self.time_started.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"Time Finished: {time_finished.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"Duration: {duration}\n"
+            "Run Finished.\n"
+        )
+
+        logger.info(final_timestamps)
+        
+
+        # logger.info(f"Time Started: {self.time_started.strftime('%Y-%m-%d %H:%M:%S')}")
+        # logger.info(f"Time Finished: {time_finished.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        # logger.info(f"Duration: {duration}\n")
 
 def main_cli():
     '''
