@@ -5,7 +5,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-class FileMover:
+class FileOps:
     """
     A class responsible for moving files into categorized sub-directories
     within a main output folder.
@@ -65,4 +65,17 @@ class FileMover:
 
         except Exception as e:
             logger.error(f"Failed to move '{source_path.name}'. Error: {e}")
+    
+    def copy_file(self, source_path: Path, destination_folder_name: str):
+        """Copies a file to a subfolder within the base output directory."""
+        destination_dir = self.base_output_dir / destination_folder_name
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            # Use shutil.copy2 to preserve metadata like timestamps
+            shutil.copy2(str(source_path), str(destination_dir / source_path.name))
+            logger.debug(f"Copied '{source_path.name}' to '{destination_dir}'.")
+        except Exception as e:
+            logger.error(f"Failed to copy '{source_path.name}': {e}")
+
+
 
