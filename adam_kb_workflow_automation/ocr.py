@@ -231,6 +231,7 @@ class BatchOCRRunner:
         logger.info(f"{len(tasks_for_ocr)} files require OCR. Starting parallel processing...")
             
         summary = (
+            "\n"
             "------------------------------\n"
             f"Using {self.num_workers} parallel processes.\n"
             f"OCR Language: '{self.language}'\n"
