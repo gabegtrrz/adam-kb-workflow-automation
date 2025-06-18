@@ -20,7 +20,7 @@ class OcrProcessor:
     A class to perform OCR on a single PDF file using OCRmyPDF.
     This class encapsulates the logic for processing one file.
     '''
-    def __init__(self, force_ocr: bool=False, language: str='eng', skip_text=False, redo_ocr=True, deskew: bool=False):
+    def __init__(self, force_ocr: bool=False, language: str='eng', skip_text=False, redo_ocr=True, deskew: bool=False, **kwargs):
         '''
         Initializes the OcrProcessor with specific settings.
 
@@ -37,6 +37,7 @@ class OcrProcessor:
         self.deskew = deskew
         self.skip_text = skip_text
         self.redo_ocr = redo_ocr
+        self.ocr_kwargs = kwargs
 
 
     def process_file(self, input_path, output_path= "") -> dict:
@@ -72,7 +73,9 @@ class OcrProcessor:
                 progress_bar=False,
                 deskew=self.deskew,
                 skip_text = self.skip_text,
-                redo_ocr = self.redo_ocr
+                redo_ocr = self.redo_ocr,
+                **self.ocr_kwargs
+
             )
             return {
                 'status': 'success',
@@ -121,7 +124,7 @@ class BatchOCRRunner:
 
     pdfs_found_count = 0
 
-    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False):
+    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False, **kwargs):
         '''
         Initializes the batch runner
         ---
@@ -146,6 +149,7 @@ class BatchOCRRunner:
         self.skip_text = skip_text
         self.redo_ocr = redo_ocr
         self.deskew = deskew
+        self.ocr_kwargs = kwargs
         
         # Instantiate helper classes
         self.triage = PdfTriage()
@@ -320,7 +324,8 @@ class BatchOCRRunner:
             self.force_ocr,
             self.language,
             skip_text = self.skip_text,
-            redo_ocr = self.redo_ocr
+            redo_ocr = self.redo_ocr,
+            **self.ocr_kwargs
             )
 
         output_folder_path = Path(output_folder_path)
@@ -342,11 +347,12 @@ class BatchOCRRunner:
         logger.info("\n\n--- OCR Processing Summary ---\n")
         logger.info(f"Time Started: {self.time_started.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"Output folder: {output_folder}")
+        logger.info("---------------------")
         logger.info(f"Total PDF files found: {self.pdfs_found_count}")
         logger.info(f'{OcrRequirement.OCR_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED]} files')
         logger.info(f'{OcrRequirement.OCR_NOT_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED]} files')
         logger.info(f'{OcrRequirement.EMPTY_OR_CORRUPT.name} : {self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT]} files')
-        logger.info(f"Successfully Processed: {successful_count} file(s).")
+        logger.info(f"Successfully Processed: {successful_count} file(s)")
         logger.info("---------------------")
         logger.info(f"Used {self.num_workers} parallel processes.")
         logger.info(f"OCR Language: '{self.language}'")
@@ -404,7 +410,7 @@ def main_cli():
     parser.add_argument(
         "--language",
         type=str,
-        default="eng",
+        default="eng+fil",
         help="Specify the OCR language (e.g., eng, fil). Default: eng"
     )
 
@@ -414,7 +420,35 @@ def main_cli():
         help="Automatically deskews (corrects the rotation of) each page before performing OCR.  Improves accuracy, but may increase processing time. Default is False."
     )
 
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
+    # parse_known_args() intelligently separates the arguments it knows from the ones it doesn't.
+    # It returns two things:
+    #    args: An object containing the arguments you defined with parser.add_argument().
+    #    unknown: A list of strings containing all the arguments it did not recognize.
+
+    ocr_kwargs = {}
+    
+    ocr_kwargs['force_ocr'] = args.force_ocr
+    ocr_kwargs['language'] = args.language
+    ocr_kwargs['skip_text'] = args.skip_text
+    ocr_kwargs['redo_ocr'] = args.redo_ocr
+    ocr_kwargs['deskew'] = args.deskew
+
+    ### include unlisted/unknown args
+    if unknown_args:
+        logger.info(f"Passing extra arguments to OCRmyPDF: {unknown_args}")
+        try:
+            # convert ['--key', 'value'] into {'key': 'value'}
+            for i in range(0, len(unknown_args), 2):
+                key = unknown_args[i].lstrip('-').replace('-', '_')
+                value = unknown_args[i+1] # the value is next to index
+                ocr_kwargs[key] = value
+        except IndexError:
+            logger.info("Error: Unrecognized arguments must be in key-value pairs.")
+            logger.info("Example: --output-type pdfa --title 'My Document'")
+            return
+
+
 
     # Configure root logger
     logging.basicConfig(
@@ -425,13 +459,9 @@ def main_cli():
 
     # Instantiate and run the batch processor from the CLI
     runner = BatchOCRRunner(
-        input_folder=args.input_folder,
-        force_ocr=args.force_ocr,
-        language=args.language,
+        input_folder=args.input_folder, # separate for clarity, code safety, and separation of concerns
         workers=args.workers,
-        skip_text = args.skip_text,
-        redo_ocr = args.redo_ocr,
-        deskew = args.deskew
+        **ocr_kwargs
     )
     
     runner.run_batch()
