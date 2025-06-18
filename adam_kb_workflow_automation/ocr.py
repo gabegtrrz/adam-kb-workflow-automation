@@ -9,7 +9,7 @@ import ocrmypdf
 import ocrmypdf.exceptions
 
 from triage import PdfTriage, OcrRequirement
-from file_operations import FileMover
+from file_operations import FileOps
 
 from tqdm import tqdm
 
@@ -138,9 +138,18 @@ class BatchOCRRunner:
             7. deskew (bool): Deskew pages before OCR.
         '''
 
+        # Initialize Timestamp
+        self.time_started = datetime.now()
+
         ### Initialize directories
         self.input_folder_path = Path(input_folder)
-        self.output_folder_path = self.input_folder_path / "OCRed_PDFs"
+        self.output_folder_path = self.input_folder_path / f"OCRed_PDFs_{self.time_started.strftime('%Y-%m-%d_%H-%M-%S')}"
+        try:
+            self.output_folder_path.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            logger.error(f'Could not create output folder "{self.output_folder_path}". Error: {e}')
+            logger.error('BatchOCRRunner.run_batch execution halted.')
+            return
 
         ### Initialize OCR Processor Args
 
@@ -153,7 +162,7 @@ class BatchOCRRunner:
         
         # Instantiate helper classes
         self.triage = PdfTriage()
-        self.mover = FileMover(base_output_dir=self.output_folder_path)
+        self.mover = FileOps(base_output_dir=self.output_folder_path)
 
         if workers == -1:
             self.num_workers = max(1, cpu_count() - 2)
@@ -163,8 +172,7 @@ class BatchOCRRunner:
             logger.error('Workers argument cannot be less than 1. Setting workers to 1.')
             self.num_workers = 1
 
-        # Initialize Timestamp
-        self.time_started = datetime.now()
+
     
     
     ### Helper function to unpack arguments for starmap. ###
@@ -209,13 +217,7 @@ class BatchOCRRunner:
         '''
         
         # OUTPUT: Create the results output folder
-        output_folder_path = self.input_folder_path / "OCRed_PDFs"
-        try:
-            output_folder_path.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            logger.error(f'Could not create output folder "{output_folder_path}". Error: {e}')
-            logger.error('BatchOCRRunner.run_batch execution halted.')
-            return
+        output_folder_path = self.output_folder_path
         
         all_pdf_files = self._get_pdfs()
         sorted_pdfs = self._classify_and_sort_pdfs(pdf_files=all_pdf_files, output_folder_path=output_folder_path.parent)
@@ -226,14 +228,19 @@ class BatchOCRRunner:
         
     
         logger.info(f"{len(tasks_for_ocr)} files require OCR. Starting parallel processing...")
-        logger.info("---------------------")
-        logger.info(f"Using {self.num_workers} parallel processes.")
-        logger.info(f"OCR Language: '{self.language}'")
-        logger.info(f"Force OCR: {self.force_ocr}")
-        logger.info(f"Skip Text: {self.skip_text}")
-        logger.info(f"Redo OCR: {self.redo_ocr}")
-        logger.info(f"Deskew: {self.deskew}")
-        logger.info("---------------------")
+            
+        summary = (
+            "------------------------------\n"
+            f"Using {self.num_workers} parallel processes.\n"
+            f"OCR Language: '{self.language}'\n"
+            f"Force OCR: {self.force_ocr}\n"
+            f"Skip Text: {self.skip_text}\n"
+            f"Redo OCR: {self.redo_ocr}\n"
+            f"Deskew: {self.deskew}\n"
+            "------------------------------\n"
+        )
+        
+        logger.info(summary)
 
 
         ### Begin Worker Multiprocessing
@@ -296,9 +303,16 @@ class BatchOCRRunner:
         self.CATEGORY_COUNT
         
         logger.info('Triage complete')
-        logger.info(f'{OcrRequirement.OCR_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED]} files')
-        logger.info(f'{OcrRequirement.OCR_NOT_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED]} files')
-        logger.info(f'{OcrRequirement.EMPTY_OR_CORRUPT.name} : {self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT]} files')
+
+        summary = (
+            "------------------------------\n"
+            f"Total PDF files found: {self.pdfs_found_count}\n"
+            f"{OcrRequirement.OCR_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED]} files\n"
+            f"{OcrRequirement.OCR_NOT_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED]} files\n"
+            f"{OcrRequirement.EMPTY_OR_CORRUPT.name} : {self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT]} files\n"
+        )
+
+        logger.info(summary)
 
         return ocr_required
 
@@ -394,6 +408,7 @@ class BatchOCRRunner:
         duration = time_finished - self.time_started
 
         final_timestamps = (
+            "\n"
             f"Time Started: {self.time_started.strftime('%Y-%m-%d %H:%M:%S')}\n"
             f"Time Finished: {time_finished.strftime('%Y-%m-%d %H:%M:%S')}\n"
             f"Duration: {duration}\n"
