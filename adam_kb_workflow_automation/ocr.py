@@ -222,13 +222,17 @@ class BatchOCRRunner:
         output_folder_path = self.output_folder_path
         
         all_pdf_files = self._get_pdfs()
-        sorted_pdfs = self._classify_and_sort_pdfs(pdf_files=all_pdf_files, output_folder_path=output_folder_path.parent)
+        sorted_pdfs = self._classify_and_sort_pdfs(pdf_files=all_pdf_files, output_folder_path=output_folder_path.parent,is_move_files=self.move_files)
 
         ### Task creation
         
         tasks_for_ocr = self._prepare_tasks(pdf_files=sorted_pdfs, output_folder_path=output_folder_path)
         
-    
+        if not tasks_for_ocr:
+            logger.info("No files requiring OCR were found. Exiting.")
+            self._log_summary([], output_folder_path)
+            return
+
         logger.info(f"{len(tasks_for_ocr)} files require OCR. Starting parallel processing...")
             
         summary = (
@@ -254,6 +258,7 @@ class BatchOCRRunner:
             # 3. list() consumes the iterator, pulling each result, which drives the progress bar.
             results = list(tqdm(pool.starmap(BatchOCRRunner.worker_adapter, tasks_for_ocr), total=len(tasks_for_ocr)))
 
+            # Rollback when removing TQDM:
             # results = pool.starmap(BatchOCRRunner.worker_adapter, tasks_for_ocr)
 
         self._log_summary(results, output_folder_path)
@@ -328,7 +333,6 @@ class BatchOCRRunner:
                     self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT] += 1
         
         logger.info('Triage complete')
-
         summary = (
             "------------------------------\n"
             f"Total PDF files found: {self.pdfs_found_count}\n"
