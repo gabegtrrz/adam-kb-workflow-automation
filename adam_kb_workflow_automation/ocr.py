@@ -125,7 +125,7 @@ class BatchOCRRunner:
 
     pdfs_found_count = 0
 
-    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False, move_files: bool = False, **kwargs):
+    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False, move_files: bool = False, is_max_workers = False, **kwargs):
         '''
         Initializes the batch runner
         ---
@@ -136,6 +136,7 @@ class BatchOCRRunner:
             4. skip_text (bool): Skip OCR on PDFs that already contain text layers.
             5. redo_ocr (bool): Analyzes text, does OCR ONLY on images, preserving native text. Defaults to True.
             6. workers (int): Number of parallel processes. Defaults to cpu_count() - 2.
+            7. is_max_workers (bool): Uses max number of processor threads. Default is False.
             7. deskew (bool): Deskew pages before OCR.
             8. move_files (bool): If True, moves files instead of copying them. Defaults to False (copy).
         '''
@@ -165,14 +166,18 @@ class BatchOCRRunner:
         # Instantiate helper classes
         self.triage = PdfTriage()
         self.file_op = FileOps(base_output_dir=self.input_folder_path)
-
-        if workers == -1:
-            self.num_workers = max(1, cpu_count() - 2)
-        elif workers > 0:
-            self.num_workers = workers
+        
+        if not is_max_workers:
+            if workers == -1:
+                self.num_workers = max(1, cpu_count() - 2)
+            elif workers > 0:
+                self.num_workers = workers
+            else:
+                logger.error('Workers argument cannot be 0 or negative. Setting workers to 1.')
+                self.num_workers = 1
         else:
-            logger.error('Workers argument cannot be 0 or negative. Setting workers to 1.')
-            self.num_workers = 1
+            self.num_workers = cpu_count()
+
 
 
     
@@ -474,6 +479,7 @@ def main_cli():
     parser.add_argument(
         "--max_workers",
         action="store_true",
+        dest='is_max_workers',
         help="Use the maximum number of available CPU cores. Overrides --workers."
     )
 
@@ -507,13 +513,12 @@ def main_cli():
     args, unknown_args = parser.parse_known_args()
 
     ocr_kwargs = {}
-    
-    ocr_kwargs['force_ocr'] = args.force_ocr
-    ocr_kwargs['language'] = args.language
-    ocr_kwargs['skip_text'] = args.skip_text
-    ocr_kwargs['redo_ocr'] = args.redo_ocr
-    ocr_kwargs['deskew'] = args.deskew
-    ocr_kwargs['output_type'] = args.output_type
+    # ocr_kwargs['force_ocr'] = args.force_ocr
+    # ocr_kwargs['language'] = args.language
+    # ocr_kwargs['skip_text'] = args.skip_text
+    # ocr_kwargs['redo_ocr'] = args.redo_ocr
+    # ocr_kwargs['deskew'] = args.deskew
+    # ocr_kwargs['output_type'] = args.output_type
 
     if unknown_args:
         logger.info(f"Passing extra arguments to OCRmyPDF: {unknown_args}")
@@ -538,9 +543,7 @@ def main_cli():
 
     # Instantiate and run the batch processor from the CLI
     runner = BatchOCRRunner(
-        input_folder=args.input_folder,
-        workers=num_workers_to_use,
-        move_files=args.move,
+        **vars(args),
         **ocr_kwargs
     )
     
