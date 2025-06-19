@@ -125,7 +125,7 @@ class BatchOCRRunner:
 
     pdfs_found_count = 0
 
-    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False, **kwargs):
+    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False, move_files: bool = False, is_max_workers = False, **kwargs):
         '''
         Initializes the batch runner
         ---
@@ -136,7 +136,9 @@ class BatchOCRRunner:
             4. skip_text (bool): Skip OCR on PDFs that already contain text layers.
             5. redo_ocr (bool): Analyzes text, does OCR ONLY on images, preserving native text. Defaults to True.
             6. workers (int): Number of parallel processes. Defaults to cpu_count() - 2.
+            7. is_max_workers (bool): Uses max number of processor threads. Default is False.
             7. deskew (bool): Deskew pages before OCR.
+            8. move_files (bool): If True, moves files instead of copying them. Defaults to False (copy).
         '''
 
         # Initialize Timestamp
@@ -144,7 +146,6 @@ class BatchOCRRunner:
 
         ### Initialize directories
         self.input_folder_path = Path(input_folder)
-        # self.output_folder_path = self.input_folder_path / "OCR_Results"
         self.output_folder_path = self.input_folder_path / f"OCR_Results_{self.time_started.strftime('%Y-%m-%d_%H-%M-%S')}"
         try:
             self.output_folder_path.mkdir(parents=True, exist_ok=True)
@@ -154,25 +155,29 @@ class BatchOCRRunner:
             return
 
         ### Initialize OCR Processor Args
-
         self.force_ocr = force_ocr
         self.language = language
         self.skip_text = skip_text
         self.redo_ocr = redo_ocr
         self.deskew = deskew
+        self.move_files = move_files
         self.ocr_kwargs = kwargs
         
         # Instantiate helper classes
         self.triage = PdfTriage()
         self.file_op = FileOps(base_output_dir=self.input_folder_path)
-
-        if workers == -1:
-            self.num_workers = max(1, cpu_count() - 2)
-        elif workers > 0:
-            self.num_workers = workers
+        
+        if not is_max_workers:
+            if workers == -1:
+                self.num_workers = max(1, cpu_count() - 2)
+            elif workers > 0:
+                self.num_workers = workers
+            else:
+                logger.error('Workers argument cannot be 0 or negative. Setting workers to 1.')
+                self.num_workers = 1
         else:
-            logger.error('Workers argument cannot be less than 1. Setting workers to 1.')
-            self.num_workers = 1
+            self.num_workers = cpu_count()
+
 
 
     
@@ -222,13 +227,17 @@ class BatchOCRRunner:
         output_folder_path = self.output_folder_path
         
         all_pdf_files = self._get_pdfs()
-        sorted_pdfs = self._classify_and_sort_pdfs(pdf_files=all_pdf_files, output_folder_path=output_folder_path.parent)
+        sorted_pdfs = self._classify_and_sort_pdfs(pdf_files=all_pdf_files, output_folder_path=output_folder_path.parent,is_move_files=self.move_files)
 
         ### Task creation
         
         tasks_for_ocr = self._prepare_tasks(pdf_files=sorted_pdfs, output_folder_path=output_folder_path)
         
-    
+        if not tasks_for_ocr:
+            logger.info("No files requiring OCR were found. Exiting.")
+            self._log_summary([], output_folder_path)
+            return
+
         logger.info(f"{len(tasks_for_ocr)} files require OCR. Starting parallel processing...")
             
         summary = (
@@ -254,6 +263,7 @@ class BatchOCRRunner:
             # 3. list() consumes the iterator, pulling each result, which drives the progress bar.
             results = list(tqdm(pool.starmap(BatchOCRRunner.worker_adapter, tasks_for_ocr), total=len(tasks_for_ocr)))
 
+            # Rollback when removing TQDM:
             # results = pool.starmap(BatchOCRRunner.worker_adapter, tasks_for_ocr)
 
         self._log_summary(results, output_folder_path)
@@ -328,7 +338,6 @@ class BatchOCRRunner:
                     self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT] += 1
         
         logger.info('Triage complete')
-
         summary = (
             "------------------------------\n"
             f"Total PDF files found: {self.pdfs_found_count}\n"
@@ -369,10 +378,8 @@ class BatchOCRRunner:
 
         output_folder_path = Path(output_folder_path)
 
-        ### Iterate through each PDF
-
         for pdf_path in pdf_files:
-            output_path = self.output_folder_path / f'[OCR] {pdf_path.name}'
+            output_path = output_folder_path / f'[OCR] {pdf_path.name}'
             tasks.append((processor, pdf_path, output_path))
             
         return tasks
@@ -404,30 +411,12 @@ class BatchOCRRunner:
 
         logger.info(summary)
         
-
-        # logger.info("\n\n--- OCR Processing Summary ---\n")
-        # logger.info(f"Output folder: {output_folder}")
-        # logger.info("---------------------")
-        # logger.info(f"Total PDF files found: {self.pdfs_found_count}")
-        # logger.info(f'{OcrRequirement.OCR_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED]} files')
-        # logger.info(f'{OcrRequirement.OCR_NOT_REQUIRED.name} : {self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED]} files')
-        # logger.info(f'{OcrRequirement.EMPTY_OR_CORRUPT.name} : {self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT]} files')
-        # logger.info(f"Successfully Processed: {successful_count} file(s)")
-        # logger.info("---------------------")
-        # logger.info(f"Used {self.num_workers} parallel processes.")
-        # logger.info(f"OCR Language: '{self.language}'")
-        # logger.info(f"Force OCR: {self.force_ocr}")
-        # logger.info(f"Skip Text: {self.skip_text}")
-        # logger.info(f"Redo OCR: {self.redo_ocr}")
-        # logger.info(f"Deskew: {self.deskew}")
-        # logger.info("---------------------")
-
         if failed_files:
             logger.warning(f"Failed to OCR: {len(failed_files)} file(s). Details below:")
             for info in failed_files:
                 logger.warning(f"- File: {Path(info['input_file']).name}, Error: {info['error']}")
         else:
-            logger.info("All found PDF files processed successfully!")
+            logger.info("All found PDF files requiring OCR processed successfully!")
         
         time_finished = datetime.now()
         duration = time_finished - self.time_started
@@ -442,10 +431,6 @@ class BatchOCRRunner:
 
         logger.info(final_timestamps)
         
-
-        # logger.info(f"Time Started: {self.time_started.strftime('%Y-%m-%d %H:%M:%S')}")
-        # logger.info(f"Time Finished: {time_finished.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        # logger.info(f"Duration: {duration}\n")
 
 def main_cli():
     '''
@@ -479,8 +464,10 @@ def main_cli():
     parser.add_argument(
         "--redo_ocr",
         action="store_false",
-        help="Add argument to disable. Default = True: Forces OCR to be performed, even if a text layer already exists. This can be useful for correcting errors or improving text quality."
+        dest='redo_ocr', # Explicitly set dest
+        help="Add argument to disable. Default = True: OCRs pages ignoring native text."
     )
+    parser.set_defaults(redo_ocr=True) # Set the default to True
 
     parser.add_argument(
         "--workers",
@@ -488,11 +475,19 @@ def main_cli():
         default=-1, # Use -1 to signal using the class default
         help=f"Set the number of parallel worker processes. Default: system cores minus 2."
     )
+    
+    parser.add_argument(
+        "--max_workers",
+        action="store_true",
+        dest='is_max_workers',
+        help="Use the maximum number of available CPU cores. Overrides --workers."
+    )
+
     parser.add_argument(
         "--language",
         type=str,
         default="eng+fil",
-        help="Specify the OCR language (e.g., eng, fil). Default: eng"
+        help="Specify the OCR language (e.g., eng, fil). Default: eng+fil"
     )
 
     parser.add_argument(
@@ -504,7 +499,7 @@ def main_cli():
     parser.add_argument(
         "--move",
         action="store_true",
-        help="Move files instead of copying them. Default behavior is to copy."
+        help="Move original files to sorted subdirectories instead of copying them. Default behavior is to copy."
     )
 
     parser.add_argument(
@@ -514,26 +509,20 @@ def main_cli():
         help='Specify the output PDF type (e.g., pdf, pdfa, pdfa-1, pdfa-2, pdfa-3). Default is "pdf".'
     )
 
+
     args, unknown_args = parser.parse_known_args()
-    # parse_known_args() intelligently separates the arguments it knows from the ones it doesn't.
-    # It returns two things:
-    #    args: An object containing the arguments you defined with parser.add_argument().
-    #    unknown: A list of strings containing all the arguments it did not recognize.
 
     ocr_kwargs = {}
-    
-    ocr_kwargs['force_ocr'] = args.force_ocr
-    ocr_kwargs['language'] = args.language
-    ocr_kwargs['skip_text'] = args.skip_text
-    ocr_kwargs['redo_ocr'] = args.redo_ocr
-    ocr_kwargs['deskew'] = args.deskew
-    ocr_kwargs['output_type'] = args.output_type
+    # ocr_kwargs['force_ocr'] = args.force_ocr
+    # ocr_kwargs['language'] = args.language
+    # ocr_kwargs['skip_text'] = args.skip_text
+    # ocr_kwargs['redo_ocr'] = args.redo_ocr
+    # ocr_kwargs['deskew'] = args.deskew
+    # ocr_kwargs['output_type'] = args.output_type
 
-    ### include unlisted/unknown args
     if unknown_args:
         logger.info(f"Passing extra arguments to OCRmyPDF: {unknown_args}")
         try:
-            # convert ['--key', 'value'] into {'key': 'value'}
             for i in range(0, len(unknown_args), 2):
                 key = unknown_args[i].lstrip('-').replace('-', '_')
                 value = unknown_args[i+1] # the value is next to index
@@ -554,9 +543,7 @@ def main_cli():
 
     # Instantiate and run the batch processor from the CLI
     runner = BatchOCRRunner(
-        input_folder=args.input_folder, # separate for clarity, code safety, and separation of concerns
-        workers=args.workers,
-        move_files=args.move,
+        **vars(args),
         **ocr_kwargs
     )
     
