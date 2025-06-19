@@ -262,7 +262,7 @@ class BatchOCRRunner:
             self._log_summary([], output_folder_path)
             return
 
-        logger.info(f"{len(tasks_for_ocr)} files require OCR. Starting parallel processing...")
+        logger.info(f"\n{len(tasks_for_ocr)} files require OCR. Starting parallel processing...")
             
         summary = (
             "\n"
