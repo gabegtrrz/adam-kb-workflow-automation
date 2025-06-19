@@ -125,7 +125,7 @@ class BatchOCRRunner:
 
     pdfs_found_count = 0
 
-    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False, **kwargs):
+    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False, move_files: bool = False, **kwargs):
         '''
         Initializes the batch runner
         ---
@@ -137,6 +137,7 @@ class BatchOCRRunner:
             5. redo_ocr (bool): Analyzes text, does OCR ONLY on images, preserving native text. Defaults to True.
             6. workers (int): Number of parallel processes. Defaults to cpu_count() - 2.
             7. deskew (bool): Deskew pages before OCR.
+            8. move_files (bool): If True, moves files instead of copying them. Defaults to False (copy).
         '''
 
         # Initialize Timestamp
@@ -144,7 +145,6 @@ class BatchOCRRunner:
 
         ### Initialize directories
         self.input_folder_path = Path(input_folder)
-        # self.output_folder_path = self.input_folder_path / "OCR_Results"
         self.output_folder_path = self.input_folder_path / f"OCR_Results_{self.time_started.strftime('%Y-%m-%d_%H-%M-%S')}"
         try:
             self.output_folder_path.mkdir(parents=True, exist_ok=True)
@@ -154,12 +154,12 @@ class BatchOCRRunner:
             return
 
         ### Initialize OCR Processor Args
-
         self.force_ocr = force_ocr
         self.language = language
         self.skip_text = skip_text
         self.redo_ocr = redo_ocr
         self.deskew = deskew
+        self.move_files = move_files
         self.ocr_kwargs = kwargs
         
         # Instantiate helper classes
@@ -171,7 +171,7 @@ class BatchOCRRunner:
         elif workers > 0:
             self.num_workers = workers
         else:
-            logger.error('Workers argument cannot be less than 1. Setting workers to 1.')
+            logger.error('Workers argument cannot be 0 or negative. Setting workers to 1.')
             self.num_workers = 1
 
 
