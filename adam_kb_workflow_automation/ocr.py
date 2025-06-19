@@ -112,7 +112,7 @@ class BatchOCRRunner:
     ### Initialize Folder Names for Sorting OcrRequirement
     CATEGORY_FOLDERS = {
         OcrRequirement.OCR_REQUIRED: 'Original PDFs',
-        OcrRequirement.OCR_NOT_REQUIRED: 'Skipped_PDFs_No_OCR_Required',
+        OcrRequirement.OCR_NOT_REQUIRED: 'No_OCR_Required',
         OcrRequirement.EMPTY_OR_CORRUPT: 'Empty_or_Error'
     }
 
@@ -144,7 +144,8 @@ class BatchOCRRunner:
 
         ### Initialize directories
         self.input_folder_path = Path(input_folder)
-        self.output_folder_path = self.input_folder_path / f"OCRed_PDFs_{self.time_started.strftime('%Y-%m-%d_%H-%M-%S')}"
+        # self.output_folder_path = self.input_folder_path / "OCR_Results"
+        self.output_folder_path = self.input_folder_path / f"OCR_Results_{self.time_started.strftime('%Y-%m-%d_%H-%M-%S')}"
         try:
             self.output_folder_path.mkdir(parents=True, exist_ok=True)
         except Exception as e:
@@ -163,7 +164,7 @@ class BatchOCRRunner:
         
         # Instantiate helper classes
         self.triage = PdfTriage()
-        self.file_op = FileOps(base_output_dir=self.output_folder_path)
+        self.file_op = FileOps(base_output_dir=self.input_folder_path)
 
         if workers == -1:
             self.num_workers = max(1, cpu_count() - 2)
@@ -258,7 +259,7 @@ class BatchOCRRunner:
         self._log_summary(results, output_folder_path)
 
 
-    def _classify_and_sort_pdfs(self, pdf_files: list, output_folder_path):
+    def _classify_and_sort_pdfs(self, pdf_files: list, output_folder_path, is_move_files:bool = False):
         """
         Classifies a list of PDF files based on their OCR requirements and sorts them into appropriate folders.
 
@@ -279,30 +280,52 @@ class BatchOCRRunner:
 
         ocr_required = []
 
-        ### Iterate through each PDF
-        for pdf_path in pdf_files:
+        if is_move_files:
 
-            ### Classify PDF if it needs OCR
-            ocr_decision = self.triage.classify(pdf_path)
+            ### Iterate through each PDF
+            for pdf_path in pdf_files:
 
-            if ocr_decision == OcrRequirement.OCR_REQUIRED:
-                self.file_op.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED])
-                new_path = self.output_folder_path/self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED]/pdf_path.name
-                ocr_required.append(new_path)
+                ### Classify PDF if it needs OCR
+                ocr_decision = self.triage.classify(pdf_path)
 
-                self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED] += 1
+                if ocr_decision == OcrRequirement.OCR_REQUIRED:
+                    self.file_op.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED])
+                    new_path = self.output_folder_path/self.CATEGORY_FOLDERS[OcrRequirement.OCR_REQUIRED]/pdf_path.name
+                    ocr_required.append(new_path)
 
-            elif ocr_decision == OcrRequirement.OCR_NOT_REQUIRED:
-                self.file_op.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_NOT_REQUIRED])
+                    self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED] += 1
 
-                self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED] += 1
+                elif ocr_decision == OcrRequirement.OCR_NOT_REQUIRED:
+                    self.file_op.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_NOT_REQUIRED])
 
-            elif ocr_decision == OcrRequirement.EMPTY_OR_CORRUPT:
-                self.file_op.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.EMPTY_OR_CORRUPT])
+                    self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED] += 1
 
-                self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT] += 1
+                elif ocr_decision == OcrRequirement.EMPTY_OR_CORRUPT:
+                    self.file_op.move_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.EMPTY_OR_CORRUPT])
+
+                    self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT] += 1
         
-        self.CATEGORY_COUNT
+        else: # Copy is default
+
+            ### Iterate through each PDF
+            for pdf_path in pdf_files:
+
+                ### Classify PDF if it needs OCR
+                ocr_decision = self.triage.classify(pdf_path)
+
+                if ocr_decision == OcrRequirement.OCR_REQUIRED:
+                    ocr_required.append(pdf_path)
+                    self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED] += 1
+
+                elif ocr_decision == OcrRequirement.OCR_NOT_REQUIRED:
+                    self.file_op.copy_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_NOT_REQUIRED])
+
+                    self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED] += 1
+
+                elif ocr_decision == OcrRequirement.EMPTY_OR_CORRUPT:
+                    self.file_op.copy_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.EMPTY_OR_CORRUPT])
+
+                    self.CATEGORY_COUNT[OcrRequirement.EMPTY_OR_CORRUPT] += 1
         
         logger.info('Triage complete')
 
@@ -434,7 +457,11 @@ def main_cli():
     )
 
     parser.add_argument(
-        "input_folder", type=str, help="Path to the folder containing PDF files."
+        '-i', '--input_pdf',
+        type=str,
+        required=True,
+        dest='input_folder',
+        help="Path to the folder containing PDF files."
     )
 
     parser.add_argument(
@@ -475,9 +502,16 @@ def main_cli():
     )
 
     parser.add_argument(
-        "--copy",
+        "--move",
         action="store_true",
-        help="Copy files instead of moving them. Default behavior is to move."
+        help="Move files instead of copying them. Default behavior is to copy."
+    )
+
+    parser.add_argument(
+        '--output_type',
+        type=str,
+        default='pdf',
+        help='Specify the output PDF type (e.g., pdf, pdfa, pdfa-1, pdfa-2, pdfa-3). Default is "pdf".'
     )
 
     args, unknown_args = parser.parse_known_args()
@@ -493,6 +527,7 @@ def main_cli():
     ocr_kwargs['skip_text'] = args.skip_text
     ocr_kwargs['redo_ocr'] = args.redo_ocr
     ocr_kwargs['deskew'] = args.deskew
+    ocr_kwargs['output_type'] = args.output_type
 
     ### include unlisted/unknown args
     if unknown_args:
@@ -521,7 +556,7 @@ def main_cli():
     runner = BatchOCRRunner(
         input_folder=args.input_folder, # separate for clarity, code safety, and separation of concerns
         workers=args.workers,
-        copy_files=args.copy,
+        move_files=args.move,
         **ocr_kwargs
     )
     
