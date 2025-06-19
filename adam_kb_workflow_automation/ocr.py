@@ -318,7 +318,7 @@ class BatchOCRRunner:
                     self.CATEGORY_COUNT[OcrRequirement.OCR_REQUIRED] += 1
 
                 elif ocr_decision == OcrRequirement.OCR_NOT_REQUIRED:
-                    self.file_op.copy_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_NOT_REQUIRED])
+                    # self.file_op.copy_file(source_path=pdf_path, destination_folder_name=self.CATEGORY_FOLDERS[OcrRequirement.OCR_NOT_REQUIRED])
 
                     self.CATEGORY_COUNT[OcrRequirement.OCR_NOT_REQUIRED] += 1
 
