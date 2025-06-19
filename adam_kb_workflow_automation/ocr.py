@@ -514,6 +514,12 @@ def main_cli():
         help='Specify the output PDF type (e.g., pdf, pdfa, pdfa-1, pdfa-2, pdfa-3). Default is "pdf".'
     )
 
+    parser.add_argument (
+        '--max_workers',
+        action='store_true',
+        help= 'Enables tool to utilize max number of threads for processing'
+    )
+
     args, unknown_args = parser.parse_known_args()
     # parse_known_args() intelligently separates the arguments it knows from the ones it doesn't.
     # It returns two things:
