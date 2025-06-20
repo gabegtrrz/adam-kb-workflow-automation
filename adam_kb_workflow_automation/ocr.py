@@ -8,6 +8,8 @@ from datetime import datetime
 import ocrmypdf
 import ocrmypdf.exceptions
 
+import pymupdf as pypdf
+
 from triage import PdfTriage, OcrRequirement
 from file_operations import FileOps
 
@@ -20,7 +22,7 @@ class OcrProcessor:
     A class to perform OCR on a single PDF file using OCRmyPDF.
     This class encapsulates the logic for processing one file.
     '''
-    def __init__(self, force_ocr: bool=False, language: str='eng', skip_text=False, redo_ocr=True, deskew: bool=False, copy_files: bool = False, **kwargs):
+    def __init__(self, force_ocr: bool=False, language: str='eng', skip_text=False, redo_ocr=True, deskew: bool=False, sidecar: bool = False, **kwargs):
         '''
         Initializes the OcrProcessor with specific settings.
 
@@ -31,14 +33,17 @@ class OcrProcessor:
             4. redo_ocr (bool): If True, analyzes text and does OCR ONLY on images, preserving native text. Defaults to True.
             5. deskew (bool): Deskew pages before OCR. Defaults to False.
             6. copy_files (bool): If True, copies files instead of moving them. Defaults to False (move).
+            7. sidecar (bool): creates a .txt sidecar if True
+
         '''
         
-        self.force_ocr = force_ocr
-        self.language = language
-        self.deskew = deskew
-        self.skip_text = skip_text
-        self.redo_ocr = redo_ocr
+        self.force_ocr  = force_ocr
+        self.language   = language
+        self.deskew     = deskew
+        self.skip_text  = skip_text
+        self.redo_ocr   = redo_ocr
         self.ocr_kwargs = kwargs
+        self.sidecar    = sidecar
 
 
     def process_file(self, input_path, output_path= "") -> dict:
@@ -60,11 +65,11 @@ class OcrProcessor:
         else:
             # If no output path is provided, create a default output path
             output_path = input_path.parent / f"[OCR] {input_path.name}"
+        
 
         try:
             # Ensure the output directory exists right before processing
             output_path.parent.mkdir(parents=True, exist_ok=True)
-
 
             ocrmypdf.ocr(
                 input_file=input_path,
@@ -78,6 +83,21 @@ class OcrProcessor:
                 **self.ocr_kwargs
 
             )
+
+            if self.sidecar:
+                sidecar_path = output_path.with_suffix('.txt')
+                try:
+                    with pypdf.open(output_path) as doc:
+                        all_text = ""
+                        for page in doc:
+                            all_text += page.get_text()
+
+                    sidecar_path.write_text(all_text, encoding='utf-8')
+
+                except Exception as e:
+                    # Log or handle the text extraction error
+                    logger.error(f"Could not create sidecar for {output_path.name}. Reason: {e}")
+           
             return {
                 'status': 'success',
                 'input_file': str(input_path),
@@ -125,7 +145,7 @@ class BatchOCRRunner:
 
     pdfs_found_count = 0
 
-    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False, move_files: bool = False, is_max_workers = False, **kwargs):
+    def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False, move_files: bool = False, is_max_workers = False, sidecar: bool = False, **kwargs):
         '''
         Initializes the batch runner
         ---
@@ -137,8 +157,9 @@ class BatchOCRRunner:
             5. redo_ocr (bool): Analyzes text, does OCR ONLY on images, preserving native text. Defaults to True.
             6. workers (int): Number of parallel processes. Defaults to cpu_count() - 2.
             7. is_max_workers (bool): Uses max number of processor threads. Default is False.
-            7. deskew (bool): Deskew pages before OCR.
-            8. move_files (bool): If True, moves files instead of copying them. Defaults to False (copy).
+            8. deskew (bool): Deskew pages before OCR.
+            9. move_files (bool): If True, moves files instead of copying them. Defaults to False (copy).
+            10. sidecar (bool): If True, creates a text file sidecar for each PDF.
         '''
 
         # Initialize Timestamp
@@ -160,7 +181,10 @@ class BatchOCRRunner:
         self.skip_text = skip_text
         self.redo_ocr = redo_ocr
         self.deskew = deskew
+
+        ### Initialize Module Args
         self.move_files = move_files
+        self.sidecar = sidecar
         self.ocr_kwargs = kwargs
         
         # Instantiate helper classes
@@ -238,7 +262,7 @@ class BatchOCRRunner:
             self._log_summary([], output_folder_path)
             return
 
-        logger.info(f"{len(tasks_for_ocr)} files require OCR. Starting parallel processing...")
+        logger.info(f"\n{len(tasks_for_ocr)} files require OCR. Starting parallel processing...")
             
         summary = (
             "\n"
@@ -366,21 +390,25 @@ class BatchOCRRunner:
                     - Path to the input PDF file,
                     - Path to the output PDF file for OCR-required files.
         '''
-
+        output_folder_path = Path(output_folder_path)
         tasks = []
+
         processor = OcrProcessor(
             self.force_ocr,
             self.language,
             skip_text = self.skip_text,
             redo_ocr = self.redo_ocr,
+            sidecar=self.sidecar,
             **self.ocr_kwargs
             )
-
-        output_folder_path = Path(output_folder_path)
-
+        
         for pdf_path in pdf_files:
             output_path = output_folder_path / f'[OCR] {pdf_path.name}'
             tasks.append((processor, pdf_path, output_path))
+    
+
+
+        
             
         return tasks
         
@@ -507,6 +535,12 @@ def main_cli():
         type=str,
         default='pdf',
         help='Specify the output PDF type (e.g., pdf, pdfa, pdfa-1, pdfa-2, pdfa-3). Default is "pdf".'
+    )
+
+    parser.add_argument(
+        "--sidecar",
+        action="store_true",
+        help="Create a text file sidecar for each OCR'd PDF."
     )
 
 
