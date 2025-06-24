@@ -1,11 +1,11 @@
 # Project-specific
-*.pdf
 .vscode
 
 # Folders
 Test Suites/
 Test Sets/
 GOEDEN.ME/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
