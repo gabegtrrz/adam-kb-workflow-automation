@@ -1,0 +1,30 @@
+{
+  "document_id": "agri-2025-002",
+  "source_file": "urban_gardening_trends.json",
+  "metadata": {
+    "author": "Leo Ramos",
+    "status": "pending_review"
+  },
+  "content_blocks": [
+    {
+      "block_id": "block-001",
+      "type": "prose",
+      "caption": null,
+      "content": "Urban gardening has grown rapidly in the Philippines, especially in densely populated areas where access to fresh produce is limited. This practice not only supplements food sources but also promotes sustainable living. The table below showcases different urban gardening methods and their common characteristics.",
+      "data": null
+    },
+    {
+      "block_id": "block-002",
+      "type": "table",
+      "caption": "Urban Gardening Methods and Characteristics",
+      "content": null,
+      "data": [
+        ["Method", "Space Requirement", "Water Usage", "Common Crops"],
+        ["Container Gardening", "Low", "Moderate", "Tomatoes, Peppers, Herbs"],
+        ["Vertical Farming", "Very Low", "Low", "Lettuce, Spinach, Basil"],
+        ["Hydroponics", "Moderate", "Very Low", "Kale, Bok Choy, Mint"],
+        ["Raised Bed Gardening", "Moderate", "High", "Carrots, Beans, Okra"]
+      ]
+    }
+  ]
+}

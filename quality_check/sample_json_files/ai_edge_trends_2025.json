@@ -1,0 +1,31 @@
+{
+  "document_id": "tech-2025-004",
+  "source_file": "ai_edge_trends_2025.json",
+  "metadata": {
+    "author": "Jordan Reyes",
+    "status": "approved"
+  },
+  "content_blocks": [
+    {
+      "block_id": "block-001",
+      "type": "prose",
+      "caption": null,
+      "content": "Edge AI is transforming how data is processed in real time across various industries. By reducing the need to send all data to centralized cloud servers, Edge AI improves responsiveness, lowers latency, and enhances data privacy. The following table outlines key differences between Edge AI and traditional Cloud AI.",
+      "data": null
+    },
+    {
+      "block_id": "block-002",
+      "type": "table",
+      "caption": "Comparison of Edge AI vs Cloud AI",
+      "content": null,
+      "data": [
+        ["Attribute", "Edge AI", "Cloud AI"],
+        ["Latency", "Low (real-time)", "Higher (network-dependent)"],
+        ["Data Privacy", "Enhanced (local processing)", "Riskier (centralized data)"],
+        ["Power Consumption", "Optimized for low power", "Requires data center resources"],
+        ["Use Cases", "IoT, autonomous vehicles, wearables", "Big data analytics, model training"],
+        ["Connectivity Dependency", "Minimal", "High"]
+      ]
+    }
+  ]
+}
