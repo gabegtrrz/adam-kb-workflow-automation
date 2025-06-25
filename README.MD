@@ -4,6 +4,14 @@ This repository contains the official collection of tools and packages used for 
 
 ---
 
+### Documentation: 
+* <a href="https://goeden-gab.notion.site/Technical-Assets-Tools-21b7c1ad9aee80819e80e485ab6952b0">**<u>Technical Documentation</u>**
+* <a href="https://goeden-gab.notion.site/Knowledge-Base-Data-Workflow-SOPs-2097c1ad9aee80fb9d00dfbec84367c5">**<u>Knowledge Base: Data Workflow & SOPs</u>**
+
+> **Note:** README files are included in the existing packages.
+
+---
+
 ## 📦 Current Packages
 
 This section describes the initial packages developed for the ingestion pipeline.
