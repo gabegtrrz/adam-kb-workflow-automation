@@ -1,0 +1,30 @@
+{
+  "document_id": "agri-2025-001",
+  "source_file": "agri_article_multipurpose_crops.json",
+  "metadata": {
+    "author": "Maria Dela Cruz",
+    "status": "approved"
+  },
+  "content_blocks": [
+    {
+      "block_id": "block-001",
+      "type": "prose",
+      "caption": null,
+      "content": "Multipurpose crops are gaining popularity among Filipino farmers due to their adaptability, economic value, and sustainability. These crops serve multiple functions such as food, forage, and soil regeneration, making them ideal for integrated farming systems. The table below highlights common multipurpose crops cultivated in different regions.",
+      "data": null
+    },
+    {
+      "block_id": "block-002",
+      "type": "table",
+      "caption": "Common Multipurpose Crops and Their Uses",
+      "content": null,
+      "data": [
+        ["Crop", "Primary Use", "Secondary Use", "Common Region"],
+        ["Moringa (Malunggay)", "Leafy vegetable", "Medicinal/Animal feed", "Central Luzon"],
+        ["Sweet Potato (Kamote)", "Root crop", "Vine as forage", "Bicol Region"],
+        ["Corn (Mais)", "Grain", "Stalks for silage", "Ilocos Region"],
+        ["Cowpea", "Grain", "Soil enrichment (nitrogen fixation)", "Western Visayas"]
+      ]
+    }
+  ]
+}

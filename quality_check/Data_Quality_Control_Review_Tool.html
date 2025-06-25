@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ADAM QC Viewer</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React Libraries -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <!-- Babel to translate JSX in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Since we can't use 'lucide-react' directly, we define the icons as SVG components.
+        // This makes the file truly self-contained.
+        const Icon = ({ children, className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{children}</svg>;
+        const UploadCloudIcon = ({ className }) => <Icon className={className}><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></Icon>;
+        const FileTextIcon = ({ className }) => <Icon className={className}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></Icon>;
+        const CheckCircleIcon = ({ className }) => <Icon className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></Icon>;
+        const XCircleIcon = ({ className }) => <Icon className={className}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></Icon>;
+        const FileCheckIcon = ({ className }) => <Icon className={className}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></Icon>;
+        const FileXIcon = ({ className }) => <Icon className={className}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m14.5 12.5-5 5"/><path d="m9.5 12.5 5 5"/></Icon>;
+        const DownloadIcon = ({ className }) => <Icon className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></Icon>;
+        const CopyIcon = ({ className }) => <Icon className={className}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></Icon>;
+        const ClipboardCheckIcon = ({ className }) => <Icon className={className}><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></Icon>;
+        const XIcon = ({ className }) => <Icon className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></Icon>;
+
+        const { useState, useMemo, useRef } = React;
+
+        const StatusIcon = ({ status }) => {
+          const sizeClass = "h-5 w-5";
+          switch (status) {
+            case 'approved': return <CheckCircleIcon className={`text-green-500 ${sizeClass}`} />;
+            case 'rejected': return <XCircleIcon className={`text-red-500 ${sizeClass}`} />;
+            default: return <FileTextIcon className={`text-gray-500 ${sizeClass}`} />;
+          }
+        };
+
+        const TableBlock = ({ block }) => {
+          if (!block?.data || block.data.length === 0) return null;
+          const header = block.data[0];
+          const rows = block.data.slice(1);
+          return (
+            <div className="my-4 overflow-x-auto rounded-lg border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 bg-white">
+                {block.caption && <caption className="p-4 text-left text-sm font-semibold text-gray-700 bg-gray-50">{block.caption}</caption>}
+                <thead className="bg-gray-50">
+                  <tr>{header.map((col, i) => <th key={i} scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{col}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {rows.map((row, i) => (
+                    <tr key={i} className="even:bg-gray-50 hover:bg-gray-100">
+                      {row.map((cell, j) => <td key={j} className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{cell}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        };
+
+        const ProseBlock = ({ block }) => <p className="my-4 text-gray-700 leading-relaxed">{block.content}</p>;
+
+        const Modal = ({ children, onClose }) => (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-lg relative">
+              <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600">
+                <XIcon className="h-6 w-6" />
+              </button>
+              {children}
+            </div>
+          </div>
+        );
+
+        const RejectionModal = ({ onSubmit, onClose }) => {
+          const [reason, setReason] = useState('');
+          return (
+            <Modal onClose={onClose}>
+              <h3 className="text-lg font-bold mb-4">Reject Document</h3>
+              <textarea
+                className="w-full border-gray-300 rounded-md p-2 h-32 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Please provide a reason for rejection..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              ></textarea>
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => onSubmit(reason)}
+                  disabled={!reason.trim()}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 disabled:bg-gray-400"
+                >
+                  Submit Rejection
+                </button>
+              </div>
+            </Modal>
+          );
+        };
+
+        const FolderUploadScreen = ({ onFilesLoaded }) => {
+            const fileInputRef = useRef(null);
+
+            const handleFileChange = async (event) => {
+                const files = event.target.files;
+                if (!files || files.length === 0) return;
+
+                let batchName = "Untitled Batch";
+
+                const fileReadPromises = Array.from(files)
+                    .filter(file => file.name.endsWith('.json'))
+                    .map(file => new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            try {
+                                const doc = JSON.parse(e.target.result);
+                                if (doc.document_id && doc.content_blocks) {
+                                    doc.status = 'pending';
+                                    doc.rejectionReason = null;
+                                    resolve(doc);
+                                } else {
+                                    console.warn(`Skipping invalid file: ${file.name}`);
+                                    resolve(null);
+                                }
+                            } catch (err) {
+                                console.error(`Error parsing ${file.name}:`, err);
+                                resolve(null);
+                            }
+                        };
+                        reader.onerror = (err) => {
+                            console.error(`Error reading ${file.name}:`, err);
+                            resolve(null);
+                        };
+                        reader.readAsText(file);
+                    }));
+                
+                if (files[0].webkitRelativePath) {
+                     batchName = files[0].webkitRelativePath.split('/')[0];
+                }
+
+                const results = await Promise.all(fileReadPromises);
+                const validDocs = results.filter(doc => doc !== null);
+                if (validDocs.length > 0) {
+                  onFilesLoaded(validDocs, batchName);
+                } else {
+                  alert("No valid JSON documents were found in the selected folder.");
+                }
+            };
+
+            return (
+                <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
+                    <div className="text-center p-12 bg-white rounded-xl shadow-lg border border-gray-200">
+                        <UploadCloudIcon className="mx-auto h-16 w-16 text-blue-500" />
+                        <h1 className="mt-4 text-2xl font-bold text-gray-800">ADAM Quality Control Viewer</h1>
+                        <p className="mt-2 text-md text-gray-600">Select a folder containing your JSON documents to begin.</p>
+                        <button
+                            onClick={() => fileInputRef.current.click()}
+                            className="mt-8 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                            Select Folder to Review
+                        </button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            webkitdirectory=""
+                            directory=""
+                            multiple
+                            className="hidden"
+                        />
+                    </div>
+                </div>
+            );
+        };
+
+        function App() {
+          const [documents, setDocuments] = useState([]);
+          const [batchName, setBatchName] = useState('');
+          const [selectedDocumentId, setSelectedDocumentId] = useState(null);
+          const [operatorName, setOperatorName] = useState('Operator Name Here');
+          const [activeModal, setActiveModal] = useState(null);
+          const [modalData, setModalData] = useState({});
+          const [copySuccess, setCopySuccess] = useState('');
+
+          const handleFilesLoaded = (loadedDocs, name) => {
+            setDocuments(loadedDocs);
+            setBatchName(name);
+            setSelectedDocumentId(loadedDocs[0]?.document_id || null);
+          };
+
+          const selectedDocument = useMemo(() => 
+            documents.find(doc => doc.document_id === selectedDocumentId),
+            [documents, selectedDocumentId]
+          );
+          
+          const handleUpdateStatus = (docId, newStatus, reason = null) => {
+            console.log(`Action: Set status to '${newStatus}' for Document`, docId);
+            setDocuments(docs =>
+              docs.map(doc =>
+                doc.document_id === docId ? { ...doc, status: newStatus, rejectionReason: reason } : doc
+              )
+            );
+            setActiveModal(null);
+          };
+
+          const handleGenerateReport = () => {
+            const approvedDocs = documents.filter(d => d.status === 'approved');
+            const rejectedDocs = documents.filter(d => d.status === 'rejected');
+            const date = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
+            const report = `
+# QC Summary Report
+
+- **Batch Name:** ${batchName}
+- **QC Operator:** ${operatorName}
+- **Completion Date:** ${date}
+
+---
+
+## Overall Results
+
+- **Total Documents Reviewed:** ${documents.filter(d => d.status !== 'pending').length}
+- **Approved:** ${approvedDocs.length}
+- **Rejected:** ${rejectedDocs.length}
+
+---
+
+## ✅ Approved Documents
+${approvedDocs.length > 0 ? approvedDocs.map(d => `- \`${d.document_id}\``).join('\n') : '- None'}
+
+---
+
+## ❌ Rejected Documents
+${rejectedDocs.length > 0 ? rejectedDocs.map(d => `
+### \`${d.document_id}\`
+- **Reason:** ${d.rejectionReason}
+`).join('\n') : '- None'}
+            `.trim();
+            setModalData({ report });
+            setActiveModal('report');
+          };
+          
+          const copyToClipboard = (text) => {
+            navigator.clipboard.writeText(text).then(() => {
+                setCopySuccess('Copied!');
+                setTimeout(() => setCopySuccess(''), 2000);
+            });
+          };
+          
+          const downloadAsMarkdown = (text) => {
+              const blob = new Blob([text], { type: 'text/markdown' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              const date = new Date().toISOString().slice(0, 10);
+              a.href = url;
+              a.download = `QC-Report-${batchName}-${date}.md`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+          };
+          
+          if (documents.length === 0) {
+              return <FolderUploadScreen onFilesLoaded={handleFilesLoaded} />
+          }
+
+          return (
+            <div className="bg-gray-100 min-h-screen font-sans text-gray-900 flex flex-col">
+              {activeModal === 'rejection' && <RejectionModal onClose={() => setActiveModal(null)} onSubmit={(reason) => handleUpdateStatus(modalData.docId, 'rejected', reason)} />}
+              
+              {activeModal === 'report' && (
+                 <Modal onClose={() => setActiveModal(null)}>
+                    <h3 className="text-lg font-bold mb-4">QC Summary Report</h3>
+                    <div className="bg-gray-50 p-4 rounded-md max-h-96 overflow-y-auto border">
+                        <pre className="whitespace-pre-wrap text-sm font-sans">{modalData.report}</pre>
+                    </div>
+                    <div className="flex justify-end mt-4 space-x-2">
+                        <button onClick={() => copyToClipboard(modalData.report)} className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700 transition-all duration-200">
+                            {copySuccess ? <ClipboardCheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
+                            <span>{copySuccess || 'Copy'}</span>
+                        </button>
+                        <button onClick={() => downloadAsMarkdown(modalData.report)} className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all duration-200">
+                            <DownloadIcon className="h-4 w-4" />
+                            <span>Download .md</span>
+                        </button>
+                    </div>
+                </Modal>
+              )}
+               {activeModal === 'success' && (
+                  <Modal onClose={() => setActiveModal(null)}>
+                      <div className="text-center">
+                          <CheckCircleIcon className="mx-auto h-12 w-12 text-green-500" />
+                          <h3 className="mt-4 text-lg font-bold">{modalData.title}</h3>
+                          <p className="mt-2 text-sm text-gray-600">{modalData.message}</p>
+                          <div className="mt-6">
+                              <button onClick={() => setActiveModal(null)} className="w-full bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700">
+                                  Close
+                              </button>
+                          </div>
+                      </div>
+                  </Modal>
+              )}
+
+              <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
+                <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                    <div className="flex justify-between items-center flex-wrap gap-4">
+                        <div className="flex items-center space-x-4 flex-shrink-0">
+                            <h1 className="text-xl font-bold text-gray-800">ADAM QC Viewer</h1>
+                            <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-md hidden sm:inline-block truncate">{batchName}</span>
+                        </div>
+                        <div className="flex items-center space-x-2 sm:space-x-4 flex-wrap gap-2">
+                            <input type="text" value={operatorName} onChange={(e) => setOperatorName(e.target.value)} placeholder="Data QC Operator Name Here" className="border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 w-48 sm:w-auto"/>
+                            <button onClick={handleGenerateReport} className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700">Generate Report</button>
+                        </div>
+                    </div>
+                </div>
+              </header>
+              
+              <main className="flex-grow flex flex-col md:flex-row max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 gap-6">
+                <div className="w-full md:w-1/3 flex-shrink-0 bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-y-auto" style={{maxHeight: 'calc(100vh - 120px)'}}>
+                  <h2 className="text-lg font-semibold mb-3 text-gray-800">Documents ({documents.length})</h2>
+                  <p className="text-xs text-gray-500 -mt-2 mb-3">Document IDs</p>
+                  <ul className="space-y-2">
+                    {documents.map(doc => (
+                      <li key={doc.document_id}>
+                        <button onClick={() => setSelectedDocumentId(doc.document_id)} className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left transition-all duration-200 ${selectedDocumentId === doc.document_id ? 'bg-blue-100 text-blue-800 shadow' : 'hover:bg-gray-100 text-gray-700'}`}>
+                          <StatusIcon status={doc.status} />
+                          <span className="font-medium text-sm flex-grow truncate">{doc.document_id}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="w-full md:w-2/3 bg-white rounded-lg border border-gray-200 shadow-sm overflow-y-auto" style={{maxHeight: 'calc(100vh - 120px)'}}>
+                  {selectedDocument ? (
+                    <div className="p-6">
+                      <div className="pb-4 border-b border-gray-200">
+                        <div className="flex justify-between items-start flex-wrap gap-4">
+                          <div className="flex-grow">
+                            <h3 className="text-xl font-bold text-gray-900 break-all">{selectedDocument.document_id}</h3>
+                            <p className="text-sm text-gray-500 mt-1">Source File: <span className="font-medium text-gray-600">{selectedDocument.source_file}</span></p>
+                          </div>
+                          <div className="flex space-x-2 flex-shrink-0">
+                            <button onClick={() => handleUpdateStatus(selectedDocument.document_id, 'approved')} className="flex items-center space-x-2 px-3 py-1.5 text-sm font-medium text-white bg-green-500 rounded-md hover:bg-green-600"><FileCheckIcon className="h-4 w-4"/><span>Approve</span></button>
+                            <button onClick={() => { setModalData({docId: selectedDocument.document_id}); setActiveModal('rejection'); }} className="flex items-center space-x-2 px-3 py-1.5 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600"><FileXIcon className="h-4 w-4"/><span>Reject</span></button>
+                          </div>
+                        </div>
+                         {/* Metadata Display Section */}
+                        {selectedDocument.metadata && Object.keys(selectedDocument.metadata).length > 0 && (
+                            <div className="mt-4 text-xs">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 bg-gray-50 p-3 rounded-md border">
+                                    {Object.entries(selectedDocument.metadata)
+                                        .filter(([key, value]) => key !== 'status') // This line filters out the 'status' key
+                                        .map(([key, value]) => (
+                                        <div key={key} className="flex flex-col">
+                                            <span className="text-gray-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                                            <span className="font-semibold text-gray-800">{value}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                      </div>
+
+                      {selectedDocument.status === 'rejected' && (
+                        <div className="my-4 p-4 bg-red-50 border-l-4 border-red-400 rounded-r-lg">
+                            <h4 className="font-bold text-red-800">Rejection Reason</h4>
+                            <p className="text-red-700 mt-1 whitespace-pre-wrap">{selectedDocument.rejectionReason}</p>
+                        </div>
+                      )}
+
+                      <div className="pt-4">
+                        {selectedDocument.content_blocks.map(block => (
+                          <div key={block.block_id}>
+                            {block.type === 'prose' && <ProseBlock block={block} />}
+                            {block.type === 'table' && <TableBlock block={block} />}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-500 p-8 text-center"><p>No document selected or available. Please load a folder to begin.</p></div>
+                  )}
+                </div>
+              </main>
+            </div>
+          );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
