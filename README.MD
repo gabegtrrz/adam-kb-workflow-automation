@@ -22,7 +22,13 @@ This section describes the initial packages developed for the ingestion pipeline
 **Purpose:**  
 This package was created to address the initial requirement of making image-based PDFs searchable. It extracts text from images within PDF files while attempting to preserve the original document structure.
 
-> **Note:** This package will be phased out as transitioning to the more robust Unified Ingestion Engine detailed below. The new workflow will handle PDF processing more effectively.
+**Known Limitations:**  
+This library currently struggles to maintain the structure of complex tables and layouts. While the text is extracted, its position may be compromised. Without cleaning (which requires the document to lose its original structure), this results to dirty data which is bad idea to feed to the RAG system.
+
+*Example:*  
+![Workflow Diagram](pdf_text_layer_package\Examples\lost_table_structure_example.png)
+
+> **Note:** Because of this, this package will be phased out as transitioning to the more robust Unified Ingestion Engine detailed below. The new workflow will handle PDF processing more effectively.
 
 ---
 
