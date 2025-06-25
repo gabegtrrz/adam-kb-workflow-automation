@@ -27,7 +27,7 @@ This library currently struggles to maintain the structure of complex tables and
 
 *Example:*  
 
-![lost_table_structure_example](pdf_text_layer_package\Examples\lost_table_structure_example.png)
+![lost_table_structure_example](static\lost_table_structure_example.png)
 
 > **Note:** Because of this, this package will be phased out as transitioning to the more robust Unified Ingestion Engine detailed below. The new workflow will handle PDF processing more effectively.
 
