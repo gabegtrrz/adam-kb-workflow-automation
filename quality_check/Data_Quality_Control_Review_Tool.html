@@ -180,7 +180,7 @@
           const [documents, setDocuments] = useState([]);
           const [batchName, setBatchName] = useState('');
           const [selectedDocumentId, setSelectedDocumentId] = useState(null);
-          const [operatorName, setOperatorName] = useState('Gabriel Gutierrez');
+          const [operatorName, setOperatorName] = useState('Operator Name Here');
           const [activeModal, setActiveModal] = useState(null);
           const [modalData, setModalData] = useState({});
           const [copySuccess, setCopySuccess] = useState('');
@@ -311,7 +311,7 @@ ${rejectedDocs.length > 0 ? rejectedDocs.map(d => `
                             <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-md hidden sm:inline-block truncate">{batchName}</span>
                         </div>
                         <div className="flex items-center space-x-2 sm:space-x-4 flex-wrap gap-2">
-                            <input type="text" value={operatorName} onChange={(e) => setOperatorName(e.target.value)} placeholder="QC Operator Name" className="border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 w-36 sm:w-auto"/>
+                            <input type="text" value={operatorName} onChange={(e) => setOperatorName(e.target.value)} placeholder="Data QC Operator Name Here" className="border-gray-300 rounded-md shadow-sm text-sm focus:ring-blue-500 focus:border-blue-500 w-48 sm:w-auto"/>
                             <button onClick={handleGenerateReport} className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700">Generate Report</button>
                         </div>
                     </div>
@@ -348,6 +348,21 @@ ${rejectedDocs.length > 0 ? rejectedDocs.map(d => `
                             <button onClick={() => { setModalData({docId: selectedDocument.document_id}); setActiveModal('rejection'); }} className="flex items-center space-x-2 px-3 py-1.5 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600"><FileXIcon className="h-4 w-4"/><span>Reject</span></button>
                           </div>
                         </div>
+                         {/* Metadata Display Section */}
+                        {selectedDocument.metadata && Object.keys(selectedDocument.metadata).length > 0 && (
+                            <div className="mt-4 text-xs">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 bg-gray-50 p-3 rounded-md border">
+                                    {Object.entries(selectedDocument.metadata)
+                                        .filter(([key, value]) => key !== 'status') // This line filters out the 'status' key
+                                        .map(([key, value]) => (
+                                        <div key={key} className="flex flex-col">
+                                            <span className="text-gray-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                                            <span className="font-semibold text-gray-800">{value}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                       </div>
 
                       {selectedDocument.status === 'rejected' && (
