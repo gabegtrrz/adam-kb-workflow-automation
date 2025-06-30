@@ -85,9 +85,3 @@ Inspects the JSON, scores its quality, and flags it for review if necessary.
 - **Schema Adherence**: Ensures strict schema conformance.
 - **Confidence Scoring**: Aggregates confidence from Extractor tools.
 - **Flagging for Manual QC**: Flags low-quality or invalid documents for human review.
-
-# Contact / Legacy Information
-Name: Gabriel Gutierrez  
-GitHub: @gabegtrrz  
-Email: ggutierrez.eng@gmail.com
-
