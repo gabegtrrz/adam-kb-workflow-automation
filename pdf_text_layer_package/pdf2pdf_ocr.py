@@ -1,3 +1,22 @@
+
+# Batch OCR Processing for PDF Files using OCRmyPDF
+#
+# This module provides classes and a CLI for batch-processing PDF files with OCR (Optical Character Recognition).
+# It includes intelligent triage to skip files that do not require OCR, multiprocessing for speed, and optional
+# sidecar text extraction. The main classes are:
+#   - OcrProcessor: Handles OCR for a single PDF file.
+#   - BatchOCRRunner: Manages batch processing, triage, and parallelization.
+#
+# Usage:
+#   python pdf2pdf_ocr.py -i <input_folder> [options]
+#
+# Dependencies:
+#   - ocrmypdf
+#   - pymupdf
+#   - tqdm
+#   - triage (local)
+#   - file_operations (local)
+
 import logging
 import sys
 from pathlib import Path
@@ -19,24 +38,24 @@ logger = logging.getLogger(__name__)
 
 class OcrProcessor:
     '''
-    A class to perform OCR on a single PDF file using OCRmyPDF.
-    This class encapsulates the logic for processing one file.
+    Handles OCR processing for a single PDF file using OCRmyPDF.
+
+    This class encapsulates the logic for running OCR on one PDF file, including
+    options for language, deskewing, skipping files with text, and generating a sidecar text file.
     '''
     def __init__(self, force_ocr: bool=False, language: str='eng', skip_text=False, redo_ocr=True, deskew: bool=False, sidecar: bool = False, **kwargs):
         '''
-        Initializes the OcrProcessor with specific settings.
+        Initialize the OcrProcessor with OCR settings.
 
         Args:
-            1. force_ocr (bool): Force OCR on all files.
-            2. language (str): Language for OCR.
-            3. skip_text (bool): Skip OCR on PDFs that already contain text layers.
-            4. redo_ocr (bool): If True, analyzes text and does OCR ONLY on images, preserving native text. Defaults to True.
-            5. deskew (bool): Deskew pages before OCR. Defaults to False.
-            6. copy_files (bool): If True, copies files instead of moving them. Defaults to False (move).
-            7. sidecar (bool): creates a .txt sidecar if True
-
+            force_ocr (bool): Force OCR on all files, even if text is detected.
+            language (str): Language(s) for OCR (e.g., 'eng', 'eng+fil').
+            skip_text (bool): Skip OCR on PDFs that already contain text layers.
+            redo_ocr (bool): If True, OCR is performed only on image pages, preserving native text.
+            deskew (bool): Deskew pages before OCR.
+            sidecar (bool): If True, creates a .txt sidecar with extracted text.
+            **kwargs: Additional keyword arguments passed to ocrmypdf.ocr().
         '''
-        
         self.force_ocr  = force_ocr
         self.language   = language
         self.deskew     = deskew
@@ -48,14 +67,14 @@ class OcrProcessor:
 
     def process_file(self, input_path, output_path= "") -> dict:
         '''
-        Worker function to process a single PDF file.
+        Process a single PDF file with OCRmyPDF.
 
         Args:
-            input_path (str): Path to the input PDF.
-            output_path (str): Path to save the output searchable PDF.
+            input_path (str or Path): Path to the input PDF file.
+            output_path (str or Path, optional): Path to save the output searchable PDF. If not provided, a default is used.
 
         Returns:
-            dict: A dictionary containing the processing status and file paths.
+            dict: Dictionary with status, input/output file paths, and error info if any.
         '''
 
         # Converts path strings into Path objects
@@ -125,8 +144,10 @@ class OcrProcessor:
 
 class BatchOCRRunner:
     '''
-    Manages batch OCR processing with an intelligent triage step
-    to process only the necessary files.
+    Manages batch OCR processing for a folder of PDF files.
+
+    This class performs triage to determine which files require OCR, sorts/copies/moves files
+    into appropriate folders, and runs OCR in parallel using multiprocessing.
     '''
 
     ### Initialize Folder Names for Sorting OcrRequirement
@@ -147,19 +168,20 @@ class BatchOCRRunner:
 
     def __init__(self, input_folder: str, force_ocr: bool = False, language: str = 'eng', skip_text=False, redo_ocr=True, workers: int = -1, deskew: bool=False, move_files: bool = False, is_max_workers = False, sidecar: bool = False, **kwargs):
         '''
-        Initializes the batch runner
-        ---
+        Initialize the batch OCR runner for a folder of PDFs.
+
         Args:
-            1. input_folder (str): Path to the folder containing PDFs.
-            2. force_ocr (bool): Force OCR on all files.
-            3. language (str): Language for OCR.
-            4. skip_text (bool): Skip OCR on PDFs that already contain text layers.
-            5. redo_ocr (bool): Analyzes text, does OCR ONLY on images, preserving native text. Defaults to True.
-            6. workers (int): Number of parallel processes. Defaults to cpu_count() - 2.
-            7. is_max_workers (bool): Uses max number of processor threads. Default is False.
-            8. deskew (bool): Deskew pages before OCR.
-            9. move_files (bool): If True, moves files instead of copying them. Defaults to False (copy).
-            10. sidecar (bool): If True, creates a text file sidecar for each PDF.
+            input_folder (str): Path to the folder containing PDF files.
+            force_ocr (bool): Force OCR on all files.
+            language (str): Language(s) for OCR.
+            skip_text (bool): Skip OCR on PDFs that already contain text layers.
+            redo_ocr (bool): OCR only image pages, preserve native text.
+            workers (int): Number of parallel processes (default: cpu_count() - 2).
+            is_max_workers (bool): Use all available CPU cores if True.
+            deskew (bool): Deskew pages before OCR.
+            move_files (bool): Move files to sorted subdirectories (default: copy).
+            sidecar (bool): Create a text file sidecar for each OCR'd PDF.
+            **kwargs: Additional keyword arguments for OCRmyPDF.
         '''
 
         # Initialize Timestamp
@@ -216,7 +238,8 @@ class BatchOCRRunner:
 
     def _get_pdfs(self) -> list:
         """
-        Scans the input folder for PDF files and returns a list of their paths.
+        Scan the input folder for PDF files.
+
         Returns:
             list: List of Path objects for PDF files found in the input folder.
         """
@@ -244,7 +267,8 @@ class BatchOCRRunner:
 
     def run_batch(self):
         '''
-        Executes the intelligent batch OCR process on the entire folder.
+        Run the batch OCR process on all PDF files in the input folder.
+        Performs triage, sorts/copies/moves files, and runs OCR in parallel.
         '''
         
         # OUTPUT: Create the results output folder
@@ -295,20 +319,19 @@ class BatchOCRRunner:
 
     def _classify_and_sort_pdfs(self, pdf_files: list, output_folder_path, is_move_files:bool = False):
         """
-        Classifies a list of PDF files based on their OCR requirements and sorts them into appropriate folders.
+        Classify PDF files by OCR requirement and sort/copy/move them into folders.
 
         Args:
-            pdf_files (list): List of paths to PDF files to be classified.
-            output_folder_path (str or Path): Path to the output folder where files will be sorted.
+            pdf_files (list): List of PDF file paths to classify.
+            output_folder_path (str or Path): Path to the output folder for sorted files.
+            is_move_files (bool): If True, move files; otherwise, copy files.
+
         Returns:
             list: List of PDF file paths that require OCR processing.
+
         Side Effects:
-            - Copies files that do not require OCR or are empty/corrupt to designated folders.
-            - Logs the count of files in each classification category.
-        Classification Categories:
-            - OCR_REQUIRED: Files that require OCR processing (returned in the list).
-            - OCR_NOT_REQUIRED: Files that do not require OCR (copied to a specific folder).
-            - EMPTY_OR_CORRUPT: Files that are empty or corrupt (copied to a specific folder).
+            - Moves or copies files to subfolders based on classification.
+            - Logs the count of files in each category.
         """
         output_folder_path = Path(output_folder_path)
 
@@ -378,17 +401,14 @@ class BatchOCRRunner:
 
     def _prepare_tasks(self, pdf_files:list, output_folder_path) -> list[tuple[OcrProcessor, Path, Path]]:
         '''
-        Prepares a list of tasks using multiprocessing.
+        Prepare a list of OCR tasks for multiprocessing.
 
         Args:
             pdf_files (list): List of PDF file paths to process.
-            output_folder_path (str or Path): Path to the output folder where processed files will be saved.
+            output_folder_path (str or Path): Path to the output folder for processed files.
+
         Returns:
-            list[tuple[OcrProcessor, Path, Path]]: 
-                A list of tuples, each containing:
-                    - OcrProcessor instance configured for OCR processing,
-                    - Path to the input PDF file,
-                    - Path to the output PDF file for OCR-required files.
+            list[tuple[OcrProcessor, Path, Path]]: List of (OcrProcessor, input_path, output_path) tuples.
         '''
         output_folder_path = Path(output_folder_path)
         tasks = []
@@ -414,7 +434,13 @@ class BatchOCRRunner:
         
 
     def _log_summary(self, results: list, output_folder: Path):
-        """Logs a summary of the batch processing results."""
+        """
+        Log a summary of the batch OCR processing results.
+
+        Args:
+            results (list): List of result dicts from OCR processing.
+            output_folder (Path): Path to the output folder.
+        """
         successful_count = sum(1 for res in results if res['status'] == 'success')
         failed_files = [res for res in results if res['status'] == 'error']
 
@@ -462,7 +488,9 @@ class BatchOCRRunner:
 
 def main_cli():
     '''
-    Function to handle command-line arguments and run the batch processor.
+    Command-line interface for batch OCR processing.
+
+    Parses arguments, configures logging, and runs the BatchOCRRunner.
     '''
 
     parser = argparse.ArgumentParser(
